@@ -1,0 +1,17 @@
+{
+  "COLMAP": {
+    "sparseQuality": 2,
+    "denseQuality": 2,
+    "useGPU": true
+  },
+  "TexRecon": {
+    "dataTerm": 1,
+    "outlierRemoval": 0,
+    "toneMapping": 0,
+    "geometricVisibilityTest": true,
+    "globalSeamLeveling": false,
+    "localSeamLeveling": true,
+    "holeFilling": true,
+    "keepUnseenFaces": false
+  }
+}

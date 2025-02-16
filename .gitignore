@@ -1,0 +1,12 @@
+/build/
+/dependencies/
+/installers/
+/.vs/
+/dronemanager/
+/*.vcxproj.*
+/*.vcxproj
+*.7z
+*.sln
+*.exe
+/x64/
+/src/Resource.aps
