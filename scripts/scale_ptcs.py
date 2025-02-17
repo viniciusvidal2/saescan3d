@@ -15,7 +15,7 @@ def get_exif_data(image_path: str) -> Tuple[float, float, float]:
         image_path (str): path to the image files.
 
     Raises:
-        ValueError: No exif data in the image.
+        Exception: No exif data in the image.
 
     Returns:
         Tuple[float, float, float]: latitude, longitude and altitude.
@@ -23,7 +23,7 @@ def get_exif_data(image_path: str) -> Tuple[float, float, float]:
     image = Image.open(image_path)
     exif_data = image._getexif()
     if not exif_data:
-        raise ValueError(f"No EXIF data found in {image_path}")
+        raise Exception(f"No EXIF data found in {image_path}")
 
     gps_info = {}
     for tag, value in exif_data.items():
@@ -67,13 +67,13 @@ def process_images(folder_path: str) -> list:
         folder_path (str): folder containing images.
 
     Raises:
-        ValueError: No folder is found.
+        Exception: No folder is found.
 
     Returns:
         list: list of dictionaries containing image filename, UTM easting, northing, and altitude.
     """
     if not os.path.isdir(folder_path):
-        raise ValueError(f"Invalid directory: {folder_path}")
+        raise Exception(f"Invalid directory: {folder_path}")
 
     image_extensions = (".png", ".jpg", ".jpeg")
     results = []
@@ -100,7 +100,7 @@ def read_nvm_file(nvm_path: str) -> list:
         nvm_path (str): path to the NVM file.
 
     Raises:
-        ValueError: Invalid nvm file format.
+        Exception: Invalid nvm file format.
 
     Returns:
         list: list of dictionaries containing image filename, position, and quaternion.
@@ -109,7 +109,7 @@ def read_nvm_file(nvm_path: str) -> list:
     with open(nvm_path, 'r') as file:
         lines = file.readlines()
         if len(lines) < 3:
-            raise ValueError("Invalid NVM file format")
+            raise Exception("Invalid NVM file format")
 
         num_cameras = int(lines[2].strip())
         for i in range(3, 3 + num_cameras):
@@ -162,17 +162,23 @@ def compute_similarity_transform(pts_src: np.ndarray, pts_tgt: np.ndarray) -> Tu
 def transform_save_ply(filename: str, scale: float, rotation: np.ndarray, t: np.ndarray) -> None:
     """Reads a mesh or point cloud, applies the transformation, and saves it back.
 
+    Raises:
+        Exception: Error opening the file.
+
     Args:
         filename (str): name of the mesh file.
         scale (float): scale factor.
         rotation (np.ndarray): rotation matrix.
         t (np.ndarray): translation vector.
     """
-    mesh = trimesh.load(filename, process=False, maintain_order=True)
+    try:
+        mesh = trimesh.load(filename, process=False, maintain_order=True)
+    except Exception as e:
+        raise Exception(f"Error opening file {filename}: {e}")
 
     if hasattr(mesh, 'vertices'):
         mesh.vertices = scale * (mesh.vertices @ rotation.T) + t
-        mesh.export(filename, include_texture=True)
+        mesh.export(filename)
 
 
 def main():
@@ -180,20 +186,30 @@ def main():
     parser = argparse.ArgumentParser(
         description="Extract GPS data from images and compute transformation.")
     parser.add_argument("--folder", type=str, help="Path to the folder containing images.",
-                        default="/home/vini/extract_scale_reconstruction/images", required=False)
+                        default="C:\\Users\\vinic\\Downloads\\small\\images", required=False)
     parser.add_argument("--nvm", type=str, help="Path to the NVM file.",
-                        default="/home/vini/extract_scale_reconstruction/cameras.nvm", required=False)
+                        default="C:\\Users\\vinic\\Downloads\\small\\cameras.nvm", required=False)
     parser.add_argument("--cloud", type=str, help="Path to the point cloud (ply) to transform.",
-                        default="/home/vini/extract_scale_reconstruction/clouds/PointCloud.ply", required=False)
+                        default="C:\\Users\\vinic\\Downloads\\small\\ws\\dense\\0\\fused.ply", required=False)
     parser.add_argument("--mesh", type=str, help="Path to the mesh (ply) to transform.",
-                        default="/home/vini/extract_scale_reconstruction/clouds/Surface.ply", required=False)
+                        default="C:\\Users\\vinic\\Downloads\\small\\ws\\dense\\0\\meshed-poisson.ply", required=False)
     args = parser.parse_args()
 
+    # Describe the parameters
+    print("Input parameters:", flush=True)
+    print(f"Folder: {args.folder}", flush=True)
+    print(f"NVM file: {args.nvm}", flush=True)
+    print(f"Point cloud: {args.cloud}", flush=True)
+    print(f"Mesh: {args.mesh}", flush=True)
+
     # Obtain GPS data from images and camera poses from NVM file
+    print("Processing input images EXIF information ...", flush=True)
     utm_data = process_images(args.folder)
+    print("Reading camera poses from NVM file ...", flush=True)
     camera_poses = read_nvm_file(args.nvm)
 
     # Match correspondent points according to image filenames
+    print("Matching images and camera poses ...", flush=True)
     matched_utm = []
     matched_nvm = []
     for wgs_image_pose in utm_data:
@@ -205,16 +221,21 @@ def main():
                 break
 
     # Compute similarity transformation
+    print("Computing similarity transformation ...", flush=True)
     if len(matched_utm) >= 3:
         matched_utm = np.array(matched_utm)
         matched_nvm = np.array(matched_nvm)
         scale, global_R_scaled, global_t_scaled = compute_similarity_transform(
             matched_nvm, matched_utm)
         # Transform the points
+        print("Applying transformation to point cloud ...", flush=True)
         transform_save_ply(args.cloud, scale, global_R_scaled, global_t_scaled)
+        print("Applying transformation to mesh ...", flush=True)
         transform_save_ply(args.mesh, scale, global_R_scaled, global_t_scaled)
     else:
-        print("Not enough matching points to compute transformation.")
+        print("Not enough matching points to compute transformation.", flush=True)
+
+    print("Done!", flush=True)
 
 
 if __name__ == "__main__":
