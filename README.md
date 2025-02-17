@@ -1,21 +1,20 @@
 # SAEscan 3D #
 
 ## Configuration ##
-Use o Visual Studio 2017 ou mais novo e o CMake >= 3.14.
+Use Visual Studio 2022 and CMake >= 3.31.5.
 
-Bibliotecas  
-1 - wxWidgest >= 3.1.2 - Você compila ele executando o projeto wx_vcXX.sln (XX é a sua versão do Visual Studio) que está na pasta "wxWidgets-3.1.2\build\msw".  
-2 - Eigen >= 3.3 - Usado para manipular as matrizes.  
-3 - NSIS >= 3.04 - Usado para criar o instalador.  
+### Libraries ###  
+1 - wxWidgest == 3.2.6 - Compile the wx_vc17.sln (folder "wxWidgets-3.1.2\build\msw"). Compile in Release mode.  
+2 - Eigen >= 3.4 - Matrix manipulation.  
+3 - NSIS == 3.10 - For creating the installer.  
 
-Dependências  
-1 - installers - Baixe o .7z da seção Downloads do BitBucket e extraia ele na raiz da pasta do DroneManager (no mesmo nível do CMakeLists.txt).  
-2 - dependencies - Baixe o .7z da seção Downloads do BitBucket e extraia ele na raiz da pasta do DroneManager (no mesmo nível do CMakeLists.txt).  
+### Dependencies  
+1 - installers - Download the .7z from the lastest release in the **Releases** page. Extract it to the **saescan3d** folder (same level of the CMakeLists.txt file).  
+2 - dependencies - Download the .7z from the lastest release in the **Releases** page. Extract it to the **saescan3d** folder (same level of the CMakeLists.txt file).  
 
 ## Installing ##
-
-Se você não deseja compilar o projeto, basta executar o instalador disponível no seção Downloads do BitBucket.  
+Download and execute the program installer from the latest release, in the **Releases** page.
 
 ## Creating the installer ##
-
-Depois de criar o projeto do Visual Studio com o CMake, abra o projeto e compile o projeto "PACKAGE".  
+After creating the project in Visual Studio with CMake, open it and compile and __PACKAGE__ project.
+  
