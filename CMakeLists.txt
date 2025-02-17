@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(DroneManager)
+project(SaeScan3d)
 
 add_definitions(/openmp)
 
@@ -33,6 +33,8 @@ add_executable(${PROJECT_NAME}		src/App.cpp
 									src/HelperSSDRecon.h
 									src/HelperTexRecon.cpp
 									src/HelperTexRecon.h
+									src/HelperScalePtcs.cpp
+									src/HelperScalePtcs.h
 									src/ImageIO.cpp
 									src/ImageIO.h
 									src/Camera.cpp
@@ -67,14 +69,14 @@ INSTALL(DIRECTORY installers/ DESTINATION dep)
 #
 # CPACK macros below here
 #
-set (CPACK_PACKAGE_NAME "DroneManager")
+set (CPACK_PACKAGE_NAME "SaeScan3d")
 set (CPACK_PACKAGE_VENDOR "Vendor")
-set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "DroneManager")
-set (CPACK_PACKAGE_VERSION "0.0.5")
+set (CPACK_PACKAGE_DESCRIPTION_SUMMARY "SaeScan3d")
+set (CPACK_PACKAGE_VERSION "0.0.1")
 set (CPACK_PACKAGE_VERSION_MAJOR "0")
 set (CPACK_PACKAGE_VERSION_MINOR "0")
-set (CPACK_PACKAGE_VERSION_PATCH "5")
-set (CPACK_PACKAGE_INSTALL_DIRECTORY "DroneManager")
+set (CPACK_PACKAGE_VERSION_PATCH "1")
+set (CPACK_PACKAGE_INSTALL_DIRECTORY "SaeScan3d")
 set (CPACK_RESOURCE_FILE_LICENSE "${CMAKE_SOURCE_DIR}/license.txt")
 
 set(CPACK_NSIS_EXTRA_INSTALL_COMMANDS "
@@ -94,9 +96,6 @@ string (REPLACE ";" "\n" CPACK_NSIS_EXTRA_INSTALL_COMMANDS "${CPACK_NSIS_EXTRA_I
 # Must be after the last CPACK macros
 include(CPack)
 
-add_definitions(-DDRONEMANAGER_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
-		-DDRONEMANAGER_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
-		-DDRONEMANAGER_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
-
-
-
+add_definitions(-DSAESCAN3D_VERSION_MAJOR=${CPACK_PACKAGE_VERSION_MAJOR}
+		-DSAESCAN3D_VERSION_MINOR=${CPACK_PACKAGE_VERSION_MINOR}
+		-DSAESCAN3D_VERSION_PATCH=${CPACK_PACKAGE_VERSION_PATCH})
