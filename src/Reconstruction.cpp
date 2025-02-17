@@ -6,48 +6,51 @@
 #include "HelperCOLMAP.h"
 #include "HelperSSDRecon.h"
 #include "HelperTexRecon.h"
+#include "HelperScalePtcs.h"
 #include "ReconstructionLog.h"
 #include "ConfigurationDialog.h"
 #include "Utils.h"
 
-bool Reconstruction::Reconstruct(const std::string & projectFolder, bool generateTexture)
+bool Reconstruction::Reconstruct(const std::string &projectFolder, bool generateTexture)
 {
 	const auto imagesFolder = projectFolder + "\\images";
-	//Creating directories
+	// Creating directories
 	const auto tempDir = projectFolder + "\\temp";
 	const auto reconstructionDir = projectFolder + "\\3DData";
 	if (!Utils::CreateDir(tempDir) || !Utils::CreateDir(reconstructionDir))
 	{
 		return 0;
 	}
-	//Files
+	// Files
 	const auto pointCloudPath = reconstructionDir + "\\PointCloud.ply";
 	const auto surfacePath = reconstructionDir + "\\Surface.ply";
-	//Start processing
-	//Log
+	// Start processing
+	// Log
 	ReconstructionLog log(projectFolder + "\\log.txt");
-	auto bool2String = [](bool flag) { if (flag) { return "Yes"; } return "No"; };
+	auto bool2String = [](bool flag)
+	{ if (flag) { return "Yes"; } return "No"; };
 	log.write("Generate mesh - Yes");
 	log.write("Generate texture - " + ((std::string)bool2String(generateTexture)));
 	log.addSeparator();
-	//SFM
+	// SFM
 	std::string nvmPath = tempDir + "\\cameras.nvm";
 	if (!SFM(imagesFolder, nvmPath, log))
 	{
 		wxLogError("Erro durante o SFM");
 		return 0;
 	}
-	//Copy the nvm file to the project folder
-	if (!wxCopyFile(nvmPath, projectFolder + "\\cameras.nvm"))
+	// Copy the nvm file to the project folder
+	const auto projectNvmPath = projectFolder + "\\cameras.nvm";
+	if (!wxCopyFile(nvmPath, projectNvmPath))
 	{
-		wxLogError("Erro movendo os arquivos de câmera");
+		wxLogError("Erro movendo os arquivos de cï¿½mera");
 		return 0;
 	}
-	//Dense
-	//Create dense dir
+	// Dense
+	// Create dense dir
 	if (!Utils::CreateDir(tempDir + "/dense"))
 	{
-		wxLogError("Erro criando o diretório dense");
+		wxLogError("Erro criando o diretï¿½rio dense");
 		return 0;
 	}
 	if (!Dense(imagesFolder, tempDir, pointCloudPath, log))
@@ -55,12 +58,19 @@ bool Reconstruction::Reconstruct(const std::string & projectFolder, bool generat
 		wxLogError("Erro durante o Dense");
 		return 0;
 	}
-	//Meshing
+	// Meshing
 	if (!Meshing(pointCloudPath, surfacePath, log))
 	{
 		wxLogError("Erro durante o meshing");
 		return 0;
 	}
+	// Scale the point cloud
+	if (!HelperScalePtcs::executeScalePtcs(projectNvmPath, imagesFolder, surfacePath, pointCloudPath))
+	{
+		wxLogError("Erro durante a aplicacao de escala real sobre a reconstrucao");
+		return 0;
+	}
+	// Texturization
 	if (generateTexture)
 	{
 		const auto texturizationDir = reconstructionDir + "\\TexturedSurface";
@@ -71,16 +81,16 @@ bool Reconstruction::Reconstruct(const std::string & projectFolder, bool generat
 		const auto texturedSurfacePath = texturizationDir + "\\TexturedSurface.obj";
 		if (!Reconstruction::Texturization(surfacePath, nvmPath, texturedSurfacePath, log))
 		{
-			wxLogError("Erro durante a texturização");
+			wxLogError("Erro durante a texturizaï¿½ï¿½o");
 			return 0;
 		}
 	}
-	//Remove the temp dir
-	//wxRmdir(tempDir, wxPATH_RMDIR_RECURSIVE);
+	// Remove the temp dir
+	wxRmdir(tempDir, wxPATH_RMDIR_RECURSIVE);
 	return 1;
 }
 
-bool Reconstruction::SFM(const std::string & imagesPath, const std::string & nvmPath, ReconstructionLog & log)
+bool Reconstruction::SFM(const std::string &imagesPath, const std::string &nvmPath, ReconstructionLog &log)
 {
 	log.write("Started SFM", true, true);
 	if (!HelperCOLMAP::executeSparse(imagesPath, nvmPath))
@@ -93,7 +103,7 @@ bool Reconstruction::SFM(const std::string & imagesPath, const std::string & nvm
 	return 1;
 }
 
-bool Reconstruction::Dense(const std::string& imagesPath, const std::string & tempDir, const std::string& pointCloudOutputPath, ReconstructionLog & log)
+bool Reconstruction::Dense(const std::string &imagesPath, const std::string &tempDir, const std::string &pointCloudOutputPath, ReconstructionLog &log)
 {
 	log.write("Started COLMAP dense reconstruction", true, true);
 	if (!HelperCOLMAP::executeDense(imagesPath, tempDir, pointCloudOutputPath))
@@ -106,7 +116,7 @@ bool Reconstruction::Dense(const std::string& imagesPath, const std::string & te
 	return 1;
 }
 
-bool Reconstruction::Meshing(const std::string & pointCloudInputPath, const std::string& meshOutputPath, ReconstructionLog & log)
+bool Reconstruction::Meshing(const std::string &pointCloudInputPath, const std::string &meshOutputPath, ReconstructionLog &log)
 {
 	log.write("Started SSD meshing", true, true);
 	if (!HelperSSDRecon::executeMeshing(pointCloudInputPath, meshOutputPath))
@@ -119,9 +129,9 @@ bool Reconstruction::Meshing(const std::string & pointCloudInputPath, const std:
 	return 1;
 }
 
-bool Reconstruction::Texturization(const std::string & meshPath, const std::string & camerasPath, const std::string & outputPath, ReconstructionLog & log)
+bool Reconstruction::Texturization(const std::string &meshPath, const std::string &camerasPath, const std::string &outputPath, ReconstructionLog &log)
 {
-	//TexRecon
+	// TexRecon
 	log.write("Started TexRecon", true, true);
 	if (!HelperTexRecon::executeTexRecon(camerasPath, meshPath, outputPath, ConfigurationDialog::getTexReconOptions()))
 	{
