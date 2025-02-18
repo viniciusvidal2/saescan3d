@@ -1,6 +1,7 @@
 /build/
 /dist/
 /scripts/dist/
+/scripts/build/
 *.spec
 /dependencies/
 /installers/
