@@ -86,7 +86,7 @@ bool Reconstruction::Reconstruct(const std::string &projectFolder, bool generate
 		}
 	}
 	// Remove the temp dir
-	wxRmdir(tempDir, wxPATH_RMDIR_RECURSIVE);
+	wxFileName::Rmdir(tempDir, wxPATH_RMDIR_RECURSIVE);
 	return 1;
 }
 
