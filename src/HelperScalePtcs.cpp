@@ -3,10 +3,10 @@
 #include <fstream>
 #include <wx/log.h>
 
-bool HelperSSDRecon::executeScalePtcs(const std::string &inputCamerasFile, const std::string &inputImagesFolder,
+bool HelperScalePtcs::executeScalePtcs(const std::string &inputCamerasFile, const std::string &inputImagesFolder,
 									  const std::string &inputMesh, const std::string &inputPtc)
 {
-	std::string scalePtcsCommand(Utils::preparePath(Utils::getExecutionPath() + "/dist/scale_ptcs.exe") +
+	std::string scalePtcsCommand(Utils::preparePath(Utils::getExecutionPath() + "/ScalePtcs/scale_ptcs.exe") +
 							  " --folder " + Utils::preparePath(inputImagesFolder) +
 							  " --nvm " + Utils::preparePath(inputCamerasFile) +
 							  " --cloud " + Utils::preparePath(inputPtc) +
