@@ -6,6 +6,7 @@ from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import utm
 from typing import Tuple
+from scipy.spatial.transform import Rotation as R
 
 
 def get_exif_data(image_path: str) -> Tuple[float, float, float]:
@@ -181,6 +182,50 @@ def transform_save_ply(filename: str, scale: float, rotation: np.ndarray, t: np.
         mesh.export(filename)
 
 
+def apply_transformation_to_nvm(nvm_path: str, scale: float, rotation: np.ndarray, translation: np.ndarray) -> None:
+    """Applies the transformation to camera poses in the NVM file and saves the result.
+
+    Args:
+        nvm_path (str): path to the NVM file.
+        scale (float): scale factor.
+        rotation (np.ndarray): rotation matrix.
+        translation (np.ndarray): translation vector.
+    """
+    with open(nvm_path, 'r') as file:
+        lines = file.readlines()
+
+    if len(lines) < 3:
+        raise Exception("Invalid NVM file format")
+
+    num_cameras = int(lines[2].strip())
+    for i in range(3, 3 + num_cameras):
+        parts = lines[i].split()
+        # Only lines with 11 parts are considered camera poses
+        if len(parts) != 11:
+            continue
+        # Camera pose and line content
+        filename, focal_length, qw, qx, qy, qz, tx, ty, tz, c1, c2 = parts[:11]
+        camera_position = np.array([float(tx), float(ty), float(tz)])
+        camera_quaternion = np.array([float(qw), float(qx), float(qy), float(qz)])
+        camera_rotation = R.from_quat(camera_quaternion, scalar_first=True).as_matrix()
+
+        # Apply transformation
+        transformed_position = scale * (rotation @ camera_position) + translation
+        transformed_quaternion = R.from_matrix(
+            rotation @ camera_rotation).as_quat(scalar_first=True)
+
+        # Update the line with transformed values
+        lines[i] = (
+            f"{filename} {focal_length} "
+            f"{transformed_quaternion[0]} {transformed_quaternion[1]} {transformed_quaternion[2]} {transformed_quaternion[3]} "
+            f"{transformed_position[0]} {transformed_position[1]} {transformed_position[2]} "
+            f"{c1} {c2}\n"
+        )
+
+    with open(nvm_path, 'w') as file:
+        file.writelines(lines)
+
+
 def main():
     """Main function to parse arguments and process images."""
     parser = argparse.ArgumentParser(
@@ -232,6 +277,8 @@ def main():
         transform_save_ply(args.cloud, scale, global_R_scaled, global_t_scaled)
         print("Applying transformation to mesh ...", flush=True)
         transform_save_ply(args.mesh, scale, global_R_scaled, global_t_scaled)
+        print("Applying transformation to NVM file ...", flush=True)
+        apply_transformation_to_nvm(args.nvm, scale, global_R_scaled, global_t_scaled)
     else:
         print("Not enough matching points to compute transformation.", flush=True)
 

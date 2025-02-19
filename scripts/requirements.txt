@@ -1,4 +1,5 @@
 numpy
+scipy
 trimesh==4.6.2
 pillow==10.4.0
 utm==0.7.0
