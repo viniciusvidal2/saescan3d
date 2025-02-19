@@ -212,7 +212,7 @@ def apply_transformation_to_nvm(nvm_path: str, scale: float, rotation: np.ndarra
         # Apply transformation
         transformed_position = scale * (rotation @ camera_position) + translation
         transformed_quaternion = R.from_matrix(
-            rotation @ camera_rotation).as_quat(scalar_first=True)
+            camera_rotation @ rotation).as_quat(scalar_first=True)
 
         # Update the line with transformed values
         lines[i] = (
@@ -231,13 +231,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Extract GPS data from images and compute transformation.")
     parser.add_argument("--folder", type=str, help="Path to the folder containing images.",
-                        default="C:\\Users\\vinic\\Downloads\\small\\images", required=False)
+                        default="D:\\small", required=False)
     parser.add_argument("--nvm", type=str, help="Path to the NVM file.",
-                        default="C:\\Users\\vinic\\Downloads\\small\\cameras.nvm", required=False)
+                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\teste\\cameras.nvm", required=False)
     parser.add_argument("--cloud", type=str, help="Path to the point cloud (ply) to transform.",
-                        default="C:\\Users\\vinic\\Downloads\\small\\ws\\dense\\0\\fused.ply", required=False)
+                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\teste\\3DData\\PointCloud.ply", required=False)
     parser.add_argument("--mesh", type=str, help="Path to the mesh (ply) to transform.",
-                        default="C:\\Users\\vinic\\Downloads\\small\\ws\\dense\\0\\meshed-poisson.ply", required=False)
+                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\teste\\3DData\\Surface.ply", required=False)
     args = parser.parse_args()
 
     # Describe the parameters
