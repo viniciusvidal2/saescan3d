@@ -79,7 +79,7 @@ bool Reconstruction::Reconstruct(const std::string &projectFolder, bool generate
 			return 0;
 		}
 		const auto texturedSurfacePath = texturizationDir + "\\TexturedSurface.obj";
-		if (!Reconstruction::Texturization(surfacePath, nvmPath, texturedSurfacePath, log))
+		if (!Reconstruction::Texturization(surfacePath, projectNvmPath, texturedSurfacePath, log))
 		{
 			wxLogError("Erro durante a texturiza��o");
 			return 0;
