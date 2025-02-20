@@ -64,13 +64,8 @@ bool Reconstruction::Reconstruct(const std::string &projectFolder, bool generate
 		wxLogError("Erro durante o meshing");
 		return 0;
 	}
-	// Scale the point cloud
-	if (!HelperScalePtcs::executeScalePtcs(projectNvmPath, imagesFolder, surfacePath, pointCloudPath))
-	{
-		wxLogError("Erro durante a aplicacao de escala real sobre a reconstrucao");
-		return 0;
-	}
 	// Texturization
+	std::string texturedSurfaceToScalePath = "";
 	if (generateTexture)
 	{
 		const auto texturizationDir = reconstructionDir + "\\TexturedSurface";
@@ -79,11 +74,18 @@ bool Reconstruction::Reconstruct(const std::string &projectFolder, bool generate
 			return 0;
 		}
 		const auto texturedSurfacePath = texturizationDir + "\\TexturedSurface.obj";
-		if (!Reconstruction::Texturization(surfacePath, projectNvmPath, texturedSurfacePath, log))
+		if (!Reconstruction::Texturization(surfacePath, nvmPath, texturedSurfacePath, log))
 		{
-			wxLogError("Erro durante a texturiza��o");
+			wxLogError("Erro durante a texturizacao");
 			return 0;
 		}
+		texturedSurfaceToScalePath = texturedSurfacePath;
+	}
+	// Scale the point cloud
+	if (!HelperScalePtcs::executeScalePtcs(projectNvmPath, imagesFolder, pointCloudPath, surfacePath, texturedSurfaceToScalePath))
+	{
+		wxLogError("Erro durante a aplicacao de escala real sobre a reconstrucao");
+		return 0;
 	}
 	// Remove the temp dir
 	wxFileName::Rmdir(tempDir, wxPATH_RMDIR_RECURSIVE);

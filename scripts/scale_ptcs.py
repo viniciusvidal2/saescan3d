@@ -7,6 +7,12 @@ from PIL.ExifTags import TAGS, GPSTAGS
 import utm
 from typing import Tuple
 from scipy.spatial.transform import Rotation as R
+import sys
+from obj_transformer import OBJTransformer
+# Force stdout and stderr to be unbuffered
+sys.stdout = open(sys.stdout.fileno(), mode='w', buffering=1)
+sys.stderr = open(sys.stderr.fileno(), mode='w', buffering=1)
+sys.stdout.reconfigure(line_buffering=True)
 
 
 def get_exif_data(image_path: str) -> Tuple[float, float, float]:
@@ -206,11 +212,14 @@ def apply_transformation_to_nvm(nvm_path: str, scale: float, rotation: np.ndarra
         # Camera pose and line content
         filename, focal_length, qw, qx, qy, qz, tx, ty, tz, c1, c2 = parts[:11]
         camera_position = np.array([float(tx), float(ty), float(tz)])
-        camera_quaternion = np.array([float(qw), float(qx), float(qy), float(qz)])
-        camera_rotation = R.from_quat(camera_quaternion, scalar_first=True).as_matrix()
+        camera_quaternion = np.array(
+            [float(qw), float(qx), float(qy), float(qz)])
+        camera_rotation = R.from_quat(
+            camera_quaternion, scalar_first=True).as_matrix()
 
         # Apply transformation
-        transformed_position = scale * (rotation @ camera_position) + translation
+        transformed_position = scale * \
+            (rotation @ camera_position) + translation
         transformed_quaternion = R.from_matrix(
             camera_rotation @ rotation).as_quat(scalar_first=True)
 
@@ -231,13 +240,15 @@ def main():
     parser = argparse.ArgumentParser(
         description="Extract GPS data from images and compute transformation.")
     parser.add_argument("--folder", type=str, help="Path to the folder containing images.",
-                        default="D:\\small", required=False)
+                        default="D:\\datasets_sfm\\city", required=False)
     parser.add_argument("--nvm", type=str, help="Path to the NVM file.",
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\teste\\cameras.nvm", required=False)
+                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\demo_high\\cameras.nvm", required=False)
     parser.add_argument("--cloud", type=str, help="Path to the point cloud (ply) to transform.",
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\teste\\3DData\\PointCloud.ply", required=False)
+                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\demo_high\\3DData\\PointCloud.ply", required=False)
     parser.add_argument("--mesh", type=str, help="Path to the mesh (ply) to transform.",
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\teste\\3DData\\Surface.ply", required=False)
+                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\demo_high\\3DData\\Surface.ply", required=False)
+    parser.add_argument('--obj', help='Path to the OBJ file to transform',
+                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\demo_high\\3DData\\TexturedSurface\\TexturedSurface.obj", required=False)
     args = parser.parse_args()
 
     # Describe the parameters
@@ -246,15 +257,21 @@ def main():
     print(f"NVM file: {args.nvm}", flush=True)
     print(f"Point cloud: {args.cloud}", flush=True)
     print(f"Mesh: {args.mesh}", flush=True)
+    if args.obj:
+        print(f"OBJ: {args.obj}", flush=True)
+    sys.stdout.flush()
 
     # Obtain GPS data from images and camera poses from NVM file
     print("Processing input images EXIF information ...", flush=True)
+    sys.stdout.flush()
     utm_data = process_images(args.folder)
     print("Reading camera poses from NVM file ...", flush=True)
+    sys.stdout.flush()
     camera_poses = read_nvm_file(args.nvm)
 
     # Match correspondent points according to image filenames
     print("Matching images and camera poses ...", flush=True)
+    sys.stdout.flush()
     matched_utm = []
     matched_nvm = []
     for wgs_image_pose in utm_data:
@@ -265,8 +282,9 @@ def main():
                 matched_nvm.append(scaled_image_pose["position"])
                 break
 
-    # Compute similarity transformation
+    # Compute similarity transformation and apply to point cloud, mesh, obj and NVM file
     print("Computing similarity transformation ...", flush=True)
+    sys.stdout.flush()
     if len(matched_utm) >= 3:
         matched_utm = np.array(matched_utm)
         matched_nvm = np.array(matched_nvm)
@@ -274,15 +292,34 @@ def main():
             matched_nvm, matched_utm)
         # Transform the points
         print("Applying transformation to point cloud ...", flush=True)
+        sys.stdout.flush()
         transform_save_ply(args.cloud, scale, global_R_scaled, global_t_scaled)
         print("Applying transformation to mesh ...", flush=True)
+        sys.stdout.flush()
         transform_save_ply(args.mesh, scale, global_R_scaled, global_t_scaled)
         print("Applying transformation to NVM file ...", flush=True)
-        apply_transformation_to_nvm(args.nvm, scale, global_R_scaled, global_t_scaled)
+        sys.stdout.flush()
+        apply_transformation_to_nvm(
+            args.nvm, scale, global_R_scaled, global_t_scaled)
+        if args.obj != "":
+            print("Applying transformation to OBJ file ...", flush=True)
+            sys.stdout.flush()
+            transformer = OBJTransformer()
+            transformer.read_obj(args.obj)
+            transformer.read_mtl()  # Read material file
+            transformer.apply_transformation(
+                scale=scale,
+                quaternion=R.from_matrix(global_R_scaled).as_quat(
+                    scalar_first=True).tolist(),
+                translation=global_t_scaled.tolist()
+            )
+            transformer.save_obj(args.obj)
     else:
         print("Not enough matching points to compute transformation.", flush=True)
+        sys.stdout.flush()
 
-    print("Done!", flush=True)
+    print("All Done!", flush=True)
+    sys.stdout.flush()
 
 
 if __name__ == "__main__":

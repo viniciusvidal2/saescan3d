@@ -4,13 +4,14 @@
 #include <wx/log.h>
 
 bool HelperScalePtcs::executeScalePtcs(const std::string &inputCamerasFile, const std::string &inputImagesFolder,
-									  const std::string &inputMesh, const std::string &inputPtc)
+									   const std::string &inputPtc, const std::string &inputMesh, const std::string &texturePath)
 {
 	std::string scalePtcsCommand(Utils::preparePath(Utils::getExecutionPath() + "/ScalePtcs/scale_ptcs.exe") +
-							  " --folder " + Utils::preparePath(inputImagesFolder) +
-							  " --nvm " + Utils::preparePath(inputCamerasFile) +
-							  " --cloud " + Utils::preparePath(inputPtc) +
-							  " --mesh " + Utils::preparePath(inputMesh));
+								 " --folder " + Utils::preparePath(inputImagesFolder) +
+								 " --nvm " + Utils::preparePath(inputCamerasFile) +
+								 " --cloud " + Utils::preparePath(inputPtc) +
+								 " --mesh " + Utils::preparePath(inputMesh) +
+								 " --obj " + Utils::preparePath(texturePath));
 	if (!Utils::startProcess(scalePtcsCommand))
 	{
 		wxLogError("Error with Scale Reconstruction Process");
