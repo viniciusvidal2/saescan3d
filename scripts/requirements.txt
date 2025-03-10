@@ -1,5 +1,5 @@
 numpy
 scipy
-trimesh==4.6.2
+open3d==0.13.0
 pillow==10.4.0
 utm==0.7.0

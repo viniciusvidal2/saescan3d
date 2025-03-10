@@ -1,7 +1,7 @@
 import argparse
 import os
 import numpy as np
-import trimesh
+import open3d as o3d
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import utm
@@ -144,29 +144,30 @@ def compute_similarity_transform(pts_src: np.ndarray, pts_tgt: np.ndarray) -> Tu
         Tuple[float, np.ndarray, np.ndarray]: scale, rotation, and translation.
     """
     # Center the points
-    centroid_src = np.mean(pts_src, axis=0)
-    centroid_tgt = np.mean(pts_tgt, axis=0)
-    src_centered = pts_src - centroid_src
-    tgt_centered = pts_tgt - centroid_tgt
+    centroid_src = np.mean(pts_src, axis=0, dtype=np.float64)
+    centroid_tgt = np.mean(pts_tgt, axis=0, dtype=np.float64)
+    src_centered = (pts_src - centroid_src).astype(np.float64)
+    tgt_centered = (pts_tgt - centroid_tgt).astype(np.float64)
 
     # Compute optimal rotation
-    H = np.dot(src_centered.T, tgt_centered)
+    H = np.dot(src_centered.T, tgt_centered).astype(np.float64)
     U, S, Vt = np.linalg.svd(H)
-    R_opt = np.dot(Vt.T, U.T)
+    R_opt = np.dot(Vt.T, U.T).astype(np.float64)
 
     # Ensure a right-handed coordinate system
     if np.linalg.det(R_opt) < 0:
         Vt[-1, :] *= -1
-        R_opt = np.dot(Vt.T, U.T)
+        R_opt = np.dot(Vt.T, U.T).astype(np.float64)
 
     # Compute optimal scale and translation
     scale = np.sum(S) / np.sum(src_centered ** 2)
-    t_opt = centroid_tgt - scale * np.dot(R_opt, centroid_src)
+    t_opt = (centroid_tgt - scale * np.dot(R_opt,
+             centroid_src)).astype(np.float64)
 
     return scale, R_opt, t_opt
 
 
-def transform_save_ply(filename: str, scale: float, rotation: np.ndarray, t: np.ndarray) -> None:
+def transform_save_ptc(filename: str, scale: float, rotation: np.ndarray, t: np.ndarray) -> None:
     """Reads a mesh or point cloud, applies the transformation, and saves it back.
 
     Raises:
@@ -178,14 +179,19 @@ def transform_save_ply(filename: str, scale: float, rotation: np.ndarray, t: np.
         rotation (np.ndarray): rotation matrix.
         t (np.ndarray): translation vector.
     """
+    # Read the point cloud from the file
     try:
-        mesh = trimesh.load(filename, process=False, maintain_order=True)
+        pcd = o3d.io.read_point_cloud(filename)
     except Exception as e:
-        raise Exception(f"Error opening file {filename}: {e}")
+        raise Exception(f"Error opening the file {filename}: {e}")
 
-    if hasattr(mesh, 'vertices'):
-        mesh.vertices = scale * (mesh.vertices @ rotation.T) + t
-        mesh.export(filename)
+    # Apply the transformation
+    vertices = np.asarray(pcd.points, dtype=np.float64)
+    vertices = (scale * (rotation @ vertices.T).T + t).astype(np.float64)
+    pcd.points = o3d.utility.Vector3dVector(vertices)
+
+    # Save the transformed point cloud
+    o3d.io.write_point_cloud(filename, pcd)
 
 
 def apply_transformation_to_nvm(nvm_path: str, scale: float, rotation: np.ndarray, translation: np.ndarray) -> None:
@@ -240,15 +246,13 @@ def main():
     parser = argparse.ArgumentParser(
         description="Extract GPS data from images and compute transformation.")
     parser.add_argument("--folder", type=str, help="Path to the folder containing images.",
-                        default="D:\\datasets_sfm\\city", required=False)
+                        default="/home/grin/Downloads/small", required=False)
     parser.add_argument("--nvm", type=str, help="Path to the NVM file.",
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\demo_high\\cameras.nvm", required=False)
+                        default="/home/grin/Downloads/small_clouds/cameras.nvm", required=False)
     parser.add_argument("--cloud", type=str, help="Path to the point cloud (ply) to transform.",
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\demo_high\\3DData\\PointCloud.ply", required=False)
-    parser.add_argument("--mesh", type=str, help="Path to the mesh (ply) to transform.",
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\demo_high\\3DData\\Surface.ply", required=False)
+                        default="/home/grin/Downloads/small_clouds/3DData/PointCloud.ply", required=False)
     parser.add_argument('--obj', help='Path to the OBJ file to transform',
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\demo_high\\3DData\\TexturedSurface\\TexturedSurface.obj", required=False)
+                        default="/home/grin/Downloads/small_clouds/3DData/TexturedSurface/TexturedSurface.obj", required=False)
     args = parser.parse_args()
 
     # Describe the parameters
@@ -256,8 +260,7 @@ def main():
     print(f"Folder: {args.folder}", flush=True)
     print(f"NVM file: {args.nvm}", flush=True)
     print(f"Point cloud: {args.cloud}", flush=True)
-    print(f"Mesh: {args.mesh}", flush=True)
-    if args.obj:
+    if args.obj and args.obj != "":
         print(f"OBJ: {args.obj}", flush=True)
     sys.stdout.flush()
 
@@ -293,10 +296,8 @@ def main():
         # Transform the points
         print("Applying transformation to point cloud ...", flush=True)
         sys.stdout.flush()
-        transform_save_ply(args.cloud, scale, global_R_scaled, global_t_scaled)
-        print("Applying transformation to mesh ...", flush=True)
-        sys.stdout.flush()
-        transform_save_ply(args.mesh, scale, global_R_scaled, global_t_scaled)
+        transform_save_ptc(
+            args.cloud, scale, global_R_scaled, global_t_scaled)
         print("Applying transformation to NVM file ...", flush=True)
         sys.stdout.flush()
         apply_transformation_to_nvm(

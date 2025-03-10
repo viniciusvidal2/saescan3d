@@ -23,7 +23,7 @@ bool Reconstruction::Reconstruct(const std::string &projectFolder, bool generate
 	}
 	// Files
 	const auto pointCloudPath = reconstructionDir + "\\PointCloud.ply";
-	const auto surfacePath = reconstructionDir + "\\Surface.ply";
+	const auto surfacePath = tempDir + "\\Surface.ply";
 	// Start processing
 	// Log
 	ReconstructionLog log(projectFolder + "\\log.txt");

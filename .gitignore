@@ -15,3 +15,4 @@
 /x64/
 /src/Resource.aps
 saescan3d
+*.pyc
