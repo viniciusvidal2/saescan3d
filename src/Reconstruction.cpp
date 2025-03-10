@@ -82,7 +82,7 @@ bool Reconstruction::Reconstruct(const std::string &projectFolder, bool generate
 		texturedSurfaceToScalePath = texturedSurfacePath;
 	}
 	// Scale the point cloud
-	if (!HelperScalePtcs::executeScalePtcs(projectNvmPath, imagesFolder, pointCloudPath, surfacePath, texturedSurfaceToScalePath))
+	if (!HelperScalePtcs::executeScalePtcs(projectNvmPath, imagesFolder, pointCloudPath, texturedSurfaceToScalePath))
 	{
 		wxLogError("Erro durante a aplicacao de escala real sobre a reconstrucao");
 		return 0;
