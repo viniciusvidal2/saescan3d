@@ -2,7 +2,6 @@
 /dist/
 /scripts/dist/
 /scripts/build/
-*.spec
 /dependencies/
 /installers/
 /.vs/
@@ -16,3 +15,4 @@
 /src/Resource.aps
 saescan3d
 *.pyc
+meshroom

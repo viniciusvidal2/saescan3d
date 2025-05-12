@@ -4,9 +4,11 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QVBoxLayout, QLabel, QWidget, QFileDialog, QSplitter, QLineEdit
 )
 from PySide6.QtGui import QPixmap, QPalette, QBrush, QFont, QGuiApplication, QResizeEvent
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QThread
 from pyvistaqt import QtInteractor
+import os
 from modules.path_tool import get_file_placement_path
+from modules.sfm_worker import SfmWorker
 
 
 class MainWindow(QMainWindow):
@@ -44,17 +46,24 @@ class MainWindow(QMainWindow):
         left_layout = QVBoxLayout(self.left_panel)
         self.setup_input_data_section(left_layout)
         self.setup_processing_section(left_layout)
-        
         # Right panel with the label
         self.right_panel = QWidget()
         right_layout = QVBoxLayout(self.right_panel)
         self.setup_right_panel(right_layout)
-        
         # Add the panels to the main layout
         splitter.addWidget(self.left_panel)
         splitter.addWidget(self.right_panel)
         splitter.setSizes([2 * self.width() // 3, self.width() // 3])
         main_layout.addWidget(splitter)
+        # Create the SFM worker to process the data in a thread
+        self.worker = SfmWorker()
+        self.thread = QThread()
+        self.signals_connected = False  # Flag to prevent duplicate connections
+        self.worker.moveToThread(self.thread)
+        # self.connect_worker_signals()
+        self.thread.start()
+        # Log splitter
+        self.log_splitter = "--------------------------------"
         
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -158,32 +167,69 @@ class MainWindow(QMainWindow):
         self.setPalette(palette)
         super().resizeEvent(event)
 
+    def connect_worker_signals(self):
+        """Connect the worker signals to the slots.
+        """
+        if self.signals_connected:
+            return
+        self.worker.log.connect(self.log_output)
+        self.worker.finished.connect(self.enable_buttons)
+        self.signals_connected = True
+
     # endregion
     # region Button Callbacks
     def images_browse_btn_callback(self) -> None:
         """Callback for the images browse button.
         """
+        self.log_output(self.log_splitter)
+        self.disable_buttons()
         # Open file dialog to select folder
         folder = QFileDialog.getExistingDirectory(
             self, "Select folder with the input images", "", QFileDialog.ShowDirsOnly)
         if folder:
             self.images_text_edit.setText(folder)
+            self.log_output(f"Selected image data folder: {folder}")
+            # List images in natural order in the folder and log them
+            images = sorted([f for f in os.listdir(folder) if f.endswith(('.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG'))],
+                            key=lambda x: int(''.join(filter(str.isdigit, x))))
+            self.log_output(f"Images found in the folder: {len(images)}")
+            for img in images:
+                self.log_output(f" - {os.path.basename(img)}")
+        else:
+            self.log_output("No folder selected.")
+        self.enable_buttons()
 
     def sfm_output_browse_btn_callback(self) -> None:
         """Callback for the SFM output browse button.
         """
+        self.log_output(self.log_splitter)
+        self.disable_buttons()
         # Open file dialog to select folder
         folder = QFileDialog.getExistingDirectory(
             self, "Select folder to store the output SFM data", "", QFileDialog.ShowDirsOnly)
         if folder:
-            self.images_text_edit.setText(folder)
+            self.sfm_output_text_edit.setText(folder)
+            self.log_output(f"Selected output folder: {folder}")
+        else:
+            self.log_output("No folder selected.")
+        self.enable_buttons()
 
     def process_sfm_btn_callback(self) -> None:
         """Callback for the SFM process button.
         """
-        # Placeholder for SFM processing
-        self.text_panel.append("Running SFM...")
-        # Here you would call the actual SFM processing function
+        self.log_output(self.log_splitter)
+        # Check if the input folder is set
+        if not self.images_text_edit.text():
+            self.log_output("Please select the input images folder.")
+            return
+        self.disable_buttons()
+        # Set the input and output folders in the worker
+        self.worker.set_input_folder(self.images_text_edit.text())
+        self.worker.set_output_folder(self.sfm_output_text_edit.text())
+        # Set the pipeline to run
+        self.worker.set_pipeline("full")
+        # Run the SFM process in a separate thread
+        QTimer.singleShot(0, self.worker.run_pipeline_signal.emit)
     
     def ptc_vis_btn_callback(self) -> None:
         """Callback for the point cloud visualization button.
@@ -196,8 +242,39 @@ class MainWindow(QMainWindow):
         """Callback for the mesh visualization button.
         """
         # Placeholder for mesh visualization
-        self.text_panel.append("Visualizing Mesh...")
         # Here you would call the actual mesh visualization function
+
+    # endregion
+    # region Logging
+    def log_output(self, msg: str) -> None:
+        """Log output to the text panel.
+        Args:
+            msg (str): The message to log.
+        """
+        self.text_panel.append(msg)
+
+    def disable_buttons(self) -> None:
+        """Disable the buttons in the processing section.
+        """
+        self.process_sfm_btn.setEnabled(False)
+        self.ptc_vis_btn.setEnabled(False)
+        self.mesh_vis_btn.setEnabled(False)
+        self.images_browse_btn.setEnabled(False)
+        self.sfm_output_browse_btn.setEnabled(False)
+        self.images_text_edit.setEnabled(False)
+        self.sfm_output_text_edit.setEnabled(False)
+        
+    def enable_buttons(self) -> None:
+        """Enable the buttons in the processing section.
+        """
+        self.process_sfm_btn.setEnabled(True)
+        self.ptc_vis_btn.setEnabled(True)
+        self.mesh_vis_btn.setEnabled(True)
+        self.images_browse_btn.setEnabled(True)
+        self.sfm_output_browse_btn.setEnabled(True)
+        self.images_text_edit.setEnabled(True)
+        self.sfm_output_text_edit.setEnabled(True)
+
     # endregion
 
 
