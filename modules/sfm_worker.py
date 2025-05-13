@@ -1,7 +1,13 @@
 from PySide6.QtCore import QObject, Signal, Slot
 import subprocess
+import os
+import shutil
+import open3d as o3d
+from pathlib import Path
 import json
-from modules.path_tool import get_file_placement_path
+from modules.tools import (
+    get_file_placement_path, convert_obj_to_ply
+)
 
 class SfmWorker(QObject):
     # Signals
@@ -40,6 +46,7 @@ class SfmWorker(QObject):
             output_folder (str): The output folder path.
         """
         self.output_folder = output_folder
+        self.cache_folder = os.path.join(self.output_folder, "MeshroomCache")
 
     def set_pipeline(self, pipeline: str) -> None:
         """Set the pipeline to run.
@@ -74,8 +81,9 @@ class SfmWorker(QObject):
         command = [self.meshroom_batch_path, 
                    "--input", self.input_folder, 
                    "--save", self.project_file_path,
-                   "--pipeline", self.pipelines[pipeline]]
-        print(command)
+                   "--pipeline", self.pipelines[pipeline],
+                   "--cache", self.cache_folder,
+                   "--toNode", "CameraInit"]
         try:
             subprocess.run(command, check=True)
         except subprocess.CalledProcessError as e:
@@ -84,18 +92,55 @@ class SfmWorker(QObject):
         # Read the project content as JSON and change the output texture format to PNG
         with open(self.project_file_path, "r") as project_file:
             project_content = json.load(project_file)
-            project_content["outputTextureFileType"] = "png"
+            project_content["graph"]["Texturing_1"]["inputs"]["colorMapping"]["colorMappingFileType"] = "png"
+            project_content["graph"]["Texturing_1"]["outputs"]["outputTextures"] = \
+                project_content["graph"]["Texturing_1"]["outputs"]["outputTextures"].replace(".exr", ".png")
             project_file.close()
         # Write the modified project content back to the project file
         with open(self.project_file_path, "w") as project_file:
             json.dump(project_content, project_file, indent=4)
             project_file.close()
         return True
+    
+    def organize_output_folder(self) -> None:
+        """Organize the output folder by maintaining only the interesting results.
+        """
+        if not self.output_folder:
+            self.log.emit("Output folder is not set.")
+            return
+        # Move texture obj to the output folder
+        output_texture_folder = os.path.join(self.output_folder, "Texturing")
+        os.makedirs(output_texture_folder, exist_ok=True)
+        texture_folder = os.path.join(self.cache_folder, "Texturing")
+        texture_hash_folder = os.path.join(texture_folder, os.listdir(texture_folder)[0])
+        shutil.copy2(os.path.join(texture_hash_folder, "texturedMesh.obj"),
+                      os.path.join(output_texture_folder, "texturedMesh.obj"))
+        # Move the MTL and PNG files to the output folder
+        shutil.copy2(os.path.join(texture_hash_folder, "texturedMesh.mtl"),
+                     os.path.join(output_texture_folder, "texturedMesh.mtl"))
+        for file in os.listdir(texture_hash_folder):
+            if file.endswith(".png"):
+                shutil.copy2(os.path.join(texture_hash_folder, file),
+                             os.path.join(output_texture_folder, file))
+        # Move the cameras to the output folder
+        sfm_folder = os.path.join(self.cache_folder, "StructureFromMotion")
+        sfm_hash_folder = os.path.join(sfm_folder, os.listdir(sfm_folder)[0])
+        shutil.copy2(os.path.join(sfm_hash_folder, "cameras.sfm"),
+                     os.path.join(self.output_folder, "cameras.sfm"))
+        # Create a the point cloud, which we generate from the obj texture file, and save
+        ptc = convert_obj_to_ply(obj_path=os.path.join(output_texture_folder, "texturedMesh.obj"))
+        ptc_path = os.path.join(self.output_folder, "pointCloud.ply")
+        o3d.io.write_point_cloud(ptc_path, ptc)
+        # Remove the cache folder
+        shutil.rmtree(self.cache_folder)
 
     @Slot()
     def run_pipeline(self) -> None:
         """Run the specified pipeline.
         """
+        if not self.input_folder or not self.output_folder or not self.cache_folder:
+            self.log.emit("Input or output folder is not set.")
+            return
         self.log.emit(f"Running pipeline '{self.pipeline}'...")
         # Prepare the project file
         if not self.create_project_file(self.pipeline):
@@ -105,15 +150,19 @@ class SfmWorker(QObject):
         self.log.emit(f"Project file created at {self.project_file_path}.")
         # Run the desired pipeline
         command = [self.meshroom_batch_path, 
-                   "--project_file", self.project_file_path, 
-                   "--output", self.output_folder]
-        print(command)
-        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as proc:
-            for line in proc.stdout:
-                self.log.emit(line.strip())
-            exit_code = proc.wait()
-        if exit_code == 0:
-            self.log.emit("Pipeline finished successfully.")
-        else:
-            self.log.emit(f"Pipeline failed with exit code {exit_code}.")
+                   "--input", self.input_folder,
+                   "--cache", self.cache_folder,
+                   "--pipeline", self.project_file_path,
+                   "--toNode", "Texturing_1",
+                   "--forceCompute", "--forceStatus"]
+        try:
+            subprocess.run(command, check=True)
+        except subprocess.CalledProcessError as e:
+            self.log.emit(f"Error running the pipeline: {e}")
+            return False
+        # Organize output folder to have only the texture, ptc, and cameras
+        self.log.emit("Organizing output folder...")
+        self.organize_output_folder()
+        self.log.emit("Output folder organized. Applying scale and frame transform...")
+
         self.finished.emit()

@@ -7,7 +7,7 @@ from PySide6.QtGui import QPixmap, QPalette, QBrush, QFont, QGuiApplication, QRe
 from PySide6.QtCore import Qt, QTimer, QThread
 from pyvistaqt import QtInteractor
 import os
-from modules.path_tool import get_file_placement_path
+from modules.tools import get_file_placement_path
 from modules.sfm_worker import SfmWorker
 
 
@@ -60,7 +60,7 @@ class MainWindow(QMainWindow):
         self.thread = QThread()
         self.signals_connected = False  # Flag to prevent duplicate connections
         self.worker.moveToThread(self.thread)
-        # self.connect_worker_signals()
+        self.connect_worker_signals()
         self.thread.start()
         # Log splitter
         self.log_splitter = "--------------------------------"
@@ -167,6 +167,13 @@ class MainWindow(QMainWindow):
         self.setPalette(palette)
         super().resizeEvent(event)
 
+    def closeEvent(self, event) -> None:
+        """Close the application and stop the worker thread.
+        """
+        self.thread.quit()
+        self.thread.wait()
+        event.accept()
+
     def connect_worker_signals(self):
         """Connect the worker signals to the slots.
         """
@@ -175,6 +182,7 @@ class MainWindow(QMainWindow):
         self.worker.log.connect(self.log_output)
         self.worker.finished.connect(self.enable_buttons)
         self.signals_connected = True
+        self.thread.finished.connect(self.thread.deleteLater)
 
     # endregion
     # region Button Callbacks
