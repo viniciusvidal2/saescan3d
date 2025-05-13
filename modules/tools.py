@@ -3,9 +3,6 @@ import os
 import trimesh
 import numpy as np
 import open3d as o3d
-from pathlib import Path
-from PIL import Image
-import OpenEXR, Imath
 
 
 def get_file_placement_path(relative_path: str) -> str:
