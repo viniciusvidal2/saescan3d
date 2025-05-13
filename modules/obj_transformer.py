@@ -61,16 +61,15 @@ class OBJTransformer:
                         self.texture_faces.append(tex_face)
                     self.face_materials.append(self.current_material)
 
-    def read_mtl(self) -> None:
+    def read_mtl(self, filename: str) -> None:
         """Read MTL file to get material and texture information.
-        """
-        if not self.mtl_file:
-            return
 
-        mtl_path = os.path.join(self.base_path, self.mtl_file)
+        Args:
+            filename (str): Path to MTL file
+        """
         current_material = None
         self.material_textures = {}  # Store texture file for each material
-
+        mtl_path = filename
         with open(mtl_path, 'r') as f:
             for line in f:
                 if line.startswith('#'):
@@ -92,14 +91,14 @@ class OBJTransformer:
 
         Args:
             scale (float): scaling factor
-            quaternion (list): quaternion rotation (w, x, y, z)
+            quaternion (list): quaternion rotation (x, y, z, w)
             translation (list): translation vector (x, y, z)
         """
         vertices = np.array(self.vertices)
 
-        # Create rotation object from quaternion (w, x, y, z)
+        # Create rotation object from quaternion (x, y, z, w)
         rotation_matrix = Rotation.from_quat(
-            quaternion, scalar_first=True).as_matrix()
+            quaternion).as_matrix()
 
         # Create 4x4 transformation matrix
         transform = np.eye(4)
@@ -187,35 +186,3 @@ def read_transform_params(filename: str) -> dict:
             'quaternion': quat.tolist(),
             'translation': params[5:8]
         }
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description='Transform 3D model using scale, quaternion rotation, and translation.')
-    parser.add_argument('--input_obj', help='Input OBJ file path',
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\office\\3DData\\TexturedSurface\\TexturedSurface.obj", required=False)
-    parser.add_argument('--transform_file', help='File containing transformation parameters',
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\office\\transf.txt", required=False)
-    parser.add_argument('--output_obj', help='Output OBJ file path',
-                        default="c:\\Users\\vinic\\OneDrive\\Documents\\SAEScan3D\\office\\3DData\\TexturedSurface\\TexturedSurface_transformed.obj", required=False)
-
-    args = parser.parse_args()
-
-    params = read_transform_params(args.transform_file)
-
-    # Transform the model
-    transformer = OBJTransformer()
-    transformer.read_obj(filename=args.input_obj)  # Read OBJ file
-    transformer.read_mtl()  # Read material file
-    transformer.apply_transformation(
-        scale=params['scale'],
-        quaternion=params['quaternion'],
-        translation=params['translation']
-    )
-
-    transformer.save_obj(filename=args.output_obj)
-    print(f"Successfully transformed model and saved to {args.output_obj}")
-
-
-if __name__ == "__main__":
-    main()
