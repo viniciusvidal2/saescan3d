@@ -36,6 +36,12 @@ def read_sfm_file(sfm_path: str) -> tuple:
     # Load the SFM file
     with open(sfm_path, "r") as f:
         sfm_data = json.load(f)
+    # Define the rotation matrix to fix the coordinate system
+    R_fix = np.array([
+            [1,  0,  0],
+            [0, -1,  0],
+            [0,  0, -1]
+        ], dtype=np.float64)
     # Extract GPS and camera points
     gps_points = []
     camera_points = []
@@ -60,14 +66,15 @@ def read_sfm_file(sfm_path: str) -> tuple:
         # Extract camera pose
         pose = poses[pose_id]
         transform = pose["pose"]["transform"]
-        center = transform["center"]
-        quaternion = transform.get("quaternion", None)
-        rotation = transform.get("rotation", None)
+        center = np.array([float(x) for x in transform["center"]])
+        rotation = np.array([float(x) for x in transform.get("rotation", None)])
+        rotation = rotation.reshape((3, 3))
+        position = R_fix @ center
         # Use center and if quaternion is not provided, use rotation matrix
-        camera_points.append(center)
+        camera_points.append(position)
         camera_info[pose_id] = {
-            "position": center,
-            "orientation": quaternion if quaternion else rotation
+            "position": position,
+            "orientation": rotation
         }
     return np.array(gps_points, dtype=np.float64), np.array(camera_points, dtype=np.float64)
 
@@ -87,22 +94,18 @@ def compute_similarity_transform(pts_src: np.ndarray, pts_tgt: np.ndarray) -> Tu
     centroid_tgt = np.mean(pts_tgt, axis=0, dtype=np.float64)
     src_centered = (pts_src - centroid_src).astype(np.float64)
     tgt_centered = (pts_tgt - centroid_tgt).astype(np.float64)
-
     # Compute optimal rotation
     H = np.dot(src_centered.T, tgt_centered).astype(np.float64)
     U, S, Vt = np.linalg.svd(H)
     R_opt = np.dot(Vt.T, U.T).astype(np.float64)
-
     # Ensure a right-handed coordinate system
     if np.linalg.det(R_opt) < 0:
         Vt[-1, :] *= -1
         R_opt = np.dot(Vt.T, U.T).astype(np.float64)
-
     # Compute optimal scale and translation
     scale = np.sum(S) / np.sum(src_centered ** 2)
     t_opt = (centroid_tgt - scale * np.dot(R_opt,
              centroid_src)).astype(np.float64)
-
     return scale, R_opt, t_opt
 
 
@@ -164,10 +167,10 @@ def transform_data_frames(sfm_path: str, cloud_path: str, obj_path: str, mtl_pat
 
 if __name__ == "__main__":
     # Example usage
-    sfm_path = "C:\\Users\\vinic\\OneDrive\\Documents\\GitHub\\saescan3d\\out\\cameras.sfm"
-    cloud_path = "C:\\Users\\vinic\\OneDrive\\Documents\\GitHub\\saescan3d\\out\\pointCloud.ply"
-    obj_path = "C:\\Users\\vinic\\OneDrive\\Documents\\GitHub\\saescan3d\\out\\Texturing\\texturedMesh.obj"
-    mtl_path = "C:\\Users\\vinic\\OneDrive\\Documents\\GitHub\\saescan3d\\out\\Texturing\\texturedMesh.mtl"
+    sfm_path = "D:\\datasets_sfm\\balsa-small\\out\\cameras.sfm"
+    cloud_path = "D:\\datasets_sfm\\balsa-small\\out\\pointCloud.ply"
+    obj_path = "D:\\datasets_sfm\\balsa-small\\out\\Texturing\\texturedMesh.obj"
+    mtl_path = "D:\\datasets_sfm\\balsa-small\\out\\Texturing\\texturedMesh.mtl"
     print("Please provide the paths to the SFM file, point cloud file, and OBJ file.")
     transform_data_frames(sfm_path=sfm_path,
                           cloud_path=cloud_path,

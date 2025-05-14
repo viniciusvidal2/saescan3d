@@ -29,11 +29,9 @@ class OBJTransformer:
             for line in f:
                 if line.startswith('#'):
                     continue
-
                 values = line.split()
                 if not values:
                     continue
-
                 if values[0] == 'mtllib':
                     # Material library
                     self.mtl_file = values[1]
@@ -55,7 +53,6 @@ class OBJTransformer:
                         face.append(int(w[0]) - 1)
                         if len(w) >= 2 and w[1]:
                             tex_face.append(int(w[1]) - 1)
-
                     self.faces.append(face)
                     if tex_face:
                         self.texture_faces.append(tex_face)
@@ -74,11 +71,9 @@ class OBJTransformer:
             for line in f:
                 if line.startswith('#'):
                     continue
-
                 values = line.split()
                 if not values:
                     continue
-
                 if values[0] == 'newmtl':
                     current_material = values[1]
                     self.materials.append(current_material)
@@ -95,21 +90,17 @@ class OBJTransformer:
             translation (list): translation vector (x, y, z)
         """
         vertices = np.array(self.vertices)
-
         # Create rotation object from quaternion (x, y, z, w)
         rotation_matrix = Rotation.from_quat(
             quaternion).as_matrix()
-
         # Create 4x4 transformation matrix
         transform = np.eye(4)
         transform[:3, :3] = scale * rotation_matrix
         transform[:3, 3] = translation
-
         # Apply transformation to vertices
         vertices_homogeneous = np.hstack(
             (vertices, np.ones((vertices.shape[0], 1))))
         transformed_vertices = np.dot(vertices_homogeneous, transform.T)
-
         # Convert back to 3D coordinates
         self.vertices = transformed_vertices[:, :3].tolist()
 
@@ -127,15 +118,12 @@ class OBJTransformer:
             # Write material library reference
             if self.mtl_file:
                 f.write(f'mtllib {self.mtl_file}\n')
-
             # Write vertices
             for v in self.vertices:
                 f.write(f'v {v[0]:.6f} {v[1]:.6f} {v[2]:.6f}\n')
-
             # Write texture coordinates
             for vt in self.texcoords:
                 f.write(f'vt {vt[0]:.6f} {vt[1]:.6f}\n')
-
             # Write faces with materials and texture coordinates
             current_material = None
             for i, face in enumerate(self.faces):
@@ -144,7 +132,6 @@ class OBJTransformer:
                     current_material = self.face_materials[i]
                     if current_material:
                         f.write(f'usemtl {current_material}\n')
-
                 f.write('f')
                 for j, vertex_idx in enumerate(face):
                     if self.texture_faces:
@@ -153,36 +140,3 @@ class OBJTransformer:
                     else:
                         f.write(f' {vertex_idx + 1}')
                 f.write('\n')
-
-
-def read_transform_params(filename: str) -> dict:
-    """Read transformation parameters from file.
-
-    Args:
-        filename (str): Path to file containing transformation parameters
-
-    Raises:
-        ValueError: If file does not contain exactly 8 values
-
-    Returns:
-        dict: Dictionary containing scale, quaternion, and translation
-    """
-    with open(filename, 'r') as f:
-        line = f.readline().strip()
-        params = [float(x) for x in line.split()]
-        if len(params) != 8:
-            raise ValueError(
-                "Transform file must contain exactly 8 values: scale, qw, qx, qy, qz, tx, ty, tz")
-
-        # Verify quaternion is normalized
-        quat = np.array(params[1:5])
-        quat_norm = np.linalg.norm(quat)
-        if not np.isclose(quat_norm, 1.0, rtol=1e-5):
-            quat = quat / quat_norm
-            print("Warning: Input quaternion was not normalized. Normalizing...")
-
-        return {
-            'scale': params[0],
-            'quaternion': quat.tolist(),
-            'translation': params[5:8]
-        }
