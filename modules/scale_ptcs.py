@@ -4,7 +4,7 @@ import utm
 from typing import Tuple
 from scipy.spatial.transform import Rotation as R
 import json
-from obj_transformer import OBJTransformer
+from modules.obj_transformer import OBJTransformer
 
 
 def convert_to_degrees(value: str, ref: str) -> float:

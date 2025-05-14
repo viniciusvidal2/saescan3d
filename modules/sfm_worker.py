@@ -3,11 +3,10 @@ import subprocess
 import os
 import shutil
 import open3d as o3d
-from pathlib import Path
 import json
-from modules.tools import (
-    get_file_placement_path, convert_obj_to_ply
-)
+import re
+from modules.tools import get_file_placement_path, convert_obj_to_ply
+from modules.scale_ptcs import transform_data_frames
 
 class SfmWorker(QObject):
     # Signals
@@ -149,20 +148,39 @@ class SfmWorker(QObject):
             return
         self.log.emit(f"Project file created at {self.project_file_path}.")
         # Run the desired pipeline
-        command = [self.meshroom_batch_path, 
-                   "--input", self.input_folder,
-                   "--cache", self.cache_folder,
-                   "--pipeline", self.project_file_path,
-                   "--toNode", "Texturing_1",
-                   "--forceCompute", "--forceStatus"]
         try:
-            subprocess.run(command, check=True)
-        except subprocess.CalledProcessError as e:
+            command = [self.meshroom_batch_path, 
+                    "--input", self.input_folder,
+                    "--cache", self.cache_folder,
+                    "--pipeline", self.project_file_path,
+                    "--toNode", "Texturing_1",
+                    "--forceCompute", "--forceStatus"]
+            process = subprocess.Popen(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                bufsize=1
+            )
+            # Print the steps to the user in the GUI
+            pattern = re.compile(r"\[\d+/11\]")
+            for line in process.stdout:
+                if "Nodes to execute" in line or pattern.search(line):
+                    self.log.emit(line)
+            process.stdout.close()
+            process.wait()
+        except Exception as e:
             self.log.emit(f"Error running the pipeline: {e}")
             return False
         # Organize output folder to have only the texture, ptc, and cameras
         self.log.emit("Organizing output folder...")
         self.organize_output_folder()
         self.log.emit("Output folder organized. Applying scale and frame transform...")
-
+        transform_data_frames(
+            sfm_path=os.path.join(self.output_folder, "cameras.sfm"),
+            cloud_path=os.path.join(self.output_folder, "pointCloud.ply"),
+            obj_path=os.path.join(self.output_folder, "Texturing", "texturedMesh.obj"),
+            mtl_path=os.path.join(self.output_folder, "Texturing", "texturedMesh.mtl")
+        )
+        self.log.emit("Transformations applied to world frame with UTM coordinate system.")
         self.finished.emit()
