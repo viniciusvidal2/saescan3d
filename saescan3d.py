@@ -7,6 +7,8 @@ from PySide6.QtGui import QPixmap, QPalette, QBrush, QFont, QGuiApplication, QRe
 from PySide6.QtCore import Qt, QTimer, QThread
 from pyvistaqt import QtInteractor
 import os
+import pyvista as pv
+import numpy as np
 from modules.tools import get_file_placement_path
 from modules.sfm_worker import SfmWorker
 
@@ -64,8 +66,10 @@ class MainWindow(QMainWindow):
         self.thread.start()
         # Log splitter
         self.log_splitter = "--------------------------------"
-        # Camera actors
+        # Actors
         self.camera_actors = list()
+        self.ptc_actor = None
+        self.mesh_actor = None
         
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -96,7 +100,7 @@ class MainWindow(QMainWindow):
         images_input_layout.addWidget(self.images_browse_btn)
         # Output data folder
         sfm_output_layout = QHBoxLayout()
-        sfm_output_label = QLabel("Output folder:")
+        sfm_output_label = QLabel("Project folder:")
         sfm_output_label.setStyleSheet(label_style)
         self.sfm_output_text_edit = QLineEdit()
         self.sfm_output_text_edit.setPlaceholderText(
@@ -194,6 +198,7 @@ class MainWindow(QMainWindow):
 
     # endregion
     # region Button Callbacks
+
     def images_browse_btn_callback(self) -> None:
         """Callback for the images browse button.
         """
@@ -227,9 +232,15 @@ class MainWindow(QMainWindow):
             self, "Select folder to store the output SFM data", "", QFileDialog.ShowDirsOnly)
         if folder:
             self.sfm_output_text_edit.setText(folder)
-            self.log_output(f"Selected output folder: {folder}")
+            self.log_output(f"Selected project folder: {folder}")
             # Set the output folder in the worker
-            self.worker.set_output_folder(self.sfm_output_text_edit.text())
+            self.worker.set_output_folder(folder)
+            # If there is already point cloud data in the folder, log it
+            if os.path.exists(os.path.join(folder, "pointCloud.ply")):
+                self.log_output("Point cloud data already exists in the project folder.")
+            # If there is already a mesh in the folder, log it
+            if os.path.exists(os.path.join(folder, "Texturing", "texturedMesh.obj")):
+                self.log_output("Mesh data already exists in the project folder.")
         else:
             self.log_output("No folder selected.")
         self.enable_buttons()
@@ -254,16 +265,22 @@ class MainWindow(QMainWindow):
     def ptc_vis_btn_callback(self) -> None:
         """Callback for the point cloud visualization button.
         """
-        # Placeholder for point cloud visualization
+        # Adding point cloud actor for visualization
         self.log_output(self.log_splitter)
         self.disable_buttons()
         self.log_output("Displaying point cloud...")
-        ptc_polydata = self.worker.get_point_cloud()
+        ptc_polydata = self.worker.read_pyvista_cloud()
         if ptc_polydata is not None:
-            self.visualizer.clear()
-            self.visualizer.add_mesh(
-                ptc_polydata, scalars=ptc_polydata.point_data["RGB"], rgb=True)
-            self.visualizer.reset_camera()
+            # Remove the mesh actor from the visualizer if the name matches
+            if self.mesh_actor is not None:
+                for actor in list(self.visualizer.actors.values()):
+                    if "mesh_part" in actor.name:
+                        self.visualizer.remove_actor(actor, reset_camera=False)
+                self.mesh_actor = None
+            # Create and add the point cloud actor
+            self.ptc_actor = self.visualizer.add_mesh(
+                ptc_polydata, scalars=ptc_polydata.point_data["RGB"], rgb=True, name="PointCloud")
+            self.prepare_actors_for_visualization()
             self.visualizer.show()
             self.log_output("Point Cloud data displayed.")
         else:
@@ -273,20 +290,45 @@ class MainWindow(QMainWindow):
     def mesh_vis_btn_callback(self) -> None:
         """Callback for the mesh visualization button.
         """
-        # Placeholder for point cloud visualization
+        # Check if the mesh is available
         self.log_output(self.log_splitter)
         self.disable_buttons()
         self.log_output("Displaying mesh...")
-        mesh_polydata = self.worker.get_textured_mesh()
-        if mesh_polydata is not None:
-            self.visualizer.clear()
-            self.visualizer.add_mesh(
-                mesh_polydata, rgb=True, show_edges=False)
-            self.visualizer.reset_camera()
-            self.visualizer.show()
-            self.log_output("Mesh data displayed.")
-        else:
+        obj_path, mtl_path = self.worker.get_textured_mesh_paths()
+        if obj_path == "" or mtl_path == "":
             self.log_output("No textured mesh data available.")
+            self.enable_buttons()
+            return
+        # Remove the previous point cloud actor if it exists
+        if self.ptc_actor is not None:
+            self.visualizer.remove_actor(self.ptc_actor, reset_camera=False)
+            self.ptc_actor = None
+        # Create and add the mesh actor
+        material_to_texture = self.parse_mtl_file(mtl_path)
+        reader = pv.OBJReader(obj_path)
+        self.mesh_actor = reader.read()
+        obj_dir = os.path.dirname(obj_path)
+        if isinstance(self.mesh_actor, pv.MultiBlock):
+            for i, part in enumerate(self.mesh_actor):
+                # Try to get material name and then texture path
+                mapper = part.GetMapper() if hasattr(part, 'GetMapper') else None
+                mat_name = None
+                if mapper and mapper.GetArrayName(0):
+                    mat_name = mapper.GetArrayName(0)
+                texture = None
+                if mat_name and mat_name in material_to_texture:
+                    tex_path = os.path.join(obj_dir, material_to_texture[mat_name])
+                    if os.path.isfile(tex_path):
+                        texture = pv.read_texture(tex_path)
+                # Add the mesh part with texture if available
+                self.visualizer.add_mesh(part, name=f"mesh_part_{i}", texture=texture)
+        else:
+            texture_file = next(iter(material_to_texture.values()), None)
+            texture = pv.read_texture(os.path.join(obj_dir, texture_file))
+            self.visualizer.add_mesh(self.mesh_actor, name="mesh_part_0", texture=texture)
+        self.prepare_actors_for_visualization()
+        self.visualizer.show()
+        self.log_output("Mesh data displayed.")
         self.enable_buttons()
 
     def camera_btn_callback(self) -> None:
@@ -308,8 +350,7 @@ class MainWindow(QMainWindow):
                 self.camera_actors.append(self.visualizer.add_mesh(cam["x"], color="red"))
                 self.camera_actors.append(self.visualizer.add_mesh(cam["y"], color="green"))
                 self.camera_actors.append(self.visualizer.add_mesh(cam["z"], color="blue"))
-            self.visualizer.reset_camera()
-            self.visualizer.render()
+            self.prepare_actors_for_visualization()
         else:
             # Remove the cameras by removing the actors
             if self.camera_actors:
@@ -318,11 +359,41 @@ class MainWindow(QMainWindow):
                 for actor in self.camera_actors:
                     self.visualizer.remove_actor(actor, reset_camera=False)
                 self.camera_actors.clear()
-                self.visualizer.reset_camera()
-                self.visualizer.render()
+                self.prepare_actors_for_visualization()
             else:
                 self.camera_btn.setChecked(True)
                 self.log_output("No camera displayed for us to hide.")
+
+    # endregion
+    # region Tools
+
+    def prepare_actors_for_visualization(self) -> None:
+        """Prepare the actors for visualization by shifting to the center of the scene.
+        """
+        # Get the center of the scene
+        center = self.worker.get_scene_center()
+        # Shift the actors to the center
+        for actor in list(self.visualizer.actors.values()):
+            mesh = actor.GetMapper().GetInputAsDataSet()
+            if mesh is not None:
+                if np.linalg.norm(mesh.center) < 1e3:
+                    continue
+                mesh.points -= center
+        self.visualizer.reset_camera()
+        self.visualizer.render()
+
+    def parse_mtl_file(self, mtl_path):
+        material_to_texture = {}
+        current_material = None
+        with open(mtl_path, 'r') as file:
+            for line in file:
+                stripped = line.strip()
+                if stripped.lower().startswith("newmtl"):
+                    current_material = stripped.split(None, 1)[1]
+                elif stripped.lower().startswith("map_kd") and current_material:
+                    texture_file = stripped.split(None, 1)[1]
+                    material_to_texture[current_material] = texture_file
+        return material_to_texture
 
     # endregion
     # region Logging
@@ -356,6 +427,7 @@ class MainWindow(QMainWindow):
         self.sfm_output_text_edit.setEnabled(True)
 
     # endregion
+# region Main call
 
 
 def main() -> None:
@@ -397,3 +469,5 @@ def main() -> None:
 
 if __name__ == '__main__':
     main()
+
+# endregion

@@ -182,14 +182,14 @@ def transform_save_obj(obj_path: str, mtl_path: str, scale: float, rotation: np.
 # endregion
 # region cameras
 
-def get_camera_poses_utm_frame(sfm_path: str, scale: float, rotation: np.ndarray, translation: np.ndarray) -> dict:
+def get_camera_poses_utm_frame(sfm_path: str, scale: float, rotation: np.ndarray, t: np.ndarray) -> dict:
     """Reads camera poses and correspondent GPS info from SFM file.
 
     Args:
         sfm_path (str): path to the SFM file.
         scale (float): scale factor.
         rotation (np.ndarray): rotation matrix.
-        translation (np.ndarray): translation vector.
+        t (np.ndarray): translation vector.
 
     Returns:
         dict: camera poses in UTM frame.
@@ -199,7 +199,7 @@ def get_camera_poses_utm_frame(sfm_path: str, scale: float, rotation: np.ndarray
     # Transform the camera poses
     for pose_id, pose in camera_poses.items():
         position = pose["position"]
-        transformed_position = (scale * (rotation @ position.T).T + translation).astype(np.float64)
+        transformed_position = (scale * (rotation @ position.T).T + t).astype(np.float64)
         transformed_orientation = rotation @ pose["orientation"]
         camera_poses[pose_id]["position"] = transformed_position
         camera_poses[pose_id]["orientation"] = transformed_orientation
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     # Transform and save the OBJ file
     transform_save_obj(obj_path=obj_path, mtl_path=mtl_path, scale=scale, rotation=rotation, t=translation)
     # Get camera poses in UTM frame
-    camera_poses = get_camera_poses_utm_frame(sfm_path=sfm_path, scale=scale, rotation=rotation, translation=translation)
+    camera_poses = get_camera_poses_utm_frame(sfm_path=sfm_path, scale=scale, rotation=rotation, t=translation)
     # Save camera poses to a file
     with open("camera_poses_utm.json", "w") as f:
         json.dump(camera_poses, f, indent=4)
