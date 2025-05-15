@@ -241,21 +241,25 @@ class SfmWorker(QObject):
             bool: True if the cameras were created successfully, False otherwise.
         """
         # Create a pyvista object axis for each camera
-        axis_length = 1
+        base_size = 1
+        height = 1.5
         for key, cam in camera_poses.items():
-            # Create a pyvista object axis
             pos = cam["position"]
             rot = cam["orientation"]
-            # Extract world-space directions for each axis
-            x_axis = rot[:, 0] * axis_length
-            y_axis = rot[:, 1] * axis_length
-            z_axis = rot[:, 2] * axis_length
-            # Create arrows for each axis
-            x_arrow = pv.Arrow(start=pos, direction=x_axis, tip_length=0.2 * axis_length, tip_radius=0.02 * axis_length, shaft_radius=0.01 * axis_length)
-            y_arrow = pv.Arrow(start=pos, direction=y_axis, tip_length=0.2 * axis_length, tip_radius=0.02 * axis_length, shaft_radius=0.01 * axis_length)
-            z_arrow = pv.Arrow(start=pos, direction=z_axis, tip_length=0.2 * axis_length, tip_radius=0.02 * axis_length, shaft_radius=0.01 * axis_length)
-            # Add the arrows to the cameras in the class
-            self.cameras[key] = {"x": x_arrow, "y": y_arrow, "z": z_arrow}
+            # Define pyramid points in local (camera) frame
+            p0 = [-base_size, -base_size, height]
+            p1 = [ base_size, -base_size, height]
+            p2 = [ base_size,  base_size, height]
+            p3 = [-base_size,  base_size, height]
+            p4 = [0.0, 0.0, 0.0]  # tip (camera position)
+            # Create a pyramid cell
+            pyramid = pv.Pyramid([p0, p1, p2, p3, p4])
+            # Transform the pyramid to the world frame
+            transform = np.eye(4)
+            transform[:3, :3] = rot
+            transform[:3, 3] = pos
+            pyramid.transform(transform)
+            self.cameras[key] = pyramid
         return True
 
     # endregion

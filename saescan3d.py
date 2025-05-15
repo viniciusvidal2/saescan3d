@@ -347,9 +347,7 @@ class MainWindow(QMainWindow):
             self.log_output("Showing cameras...")
             self.camera_btn.setText("Hide Cameras")
             for cam in cameras.values():
-                self.camera_actors.append(self.visualizer.add_mesh(cam["x"], color="red"))
-                self.camera_actors.append(self.visualizer.add_mesh(cam["y"], color="green"))
-                self.camera_actors.append(self.visualizer.add_mesh(cam["z"], color="blue"))
+                self.camera_actors.append(self.visualizer.add_mesh(cam, color="red"))
             self.prepare_actors_for_visualization()
         else:
             # Remove the cameras by removing the actors
