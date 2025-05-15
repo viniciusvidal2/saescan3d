@@ -1,4 +1,5 @@
 from PySide6.QtCore import QObject, Signal, Slot
+import pyvista as pv
 import subprocess
 import os
 import shutil
@@ -6,14 +7,17 @@ import open3d as o3d
 import json
 import re
 from modules.tools import get_file_placement_path, convert_obj_to_ply
-from modules.scale_ptcs import transform_data_frames
+from modules.scale_ptcs import (
+    get_camera_poses_utm_frame, compute_transformation_from_sfm,
+    transform_save_obj, transform_save_ptc
+)
 
 class SfmWorker(QObject):
     # Signals
     finished = Signal()
     log = Signal(str)
     run_pipeline_signal = Signal()
-
+    # region Constructor, gets, sets
     def __init__(self):
         """Initialize the SfmWorker class.
         """
@@ -29,6 +33,11 @@ class SfmWorker(QObject):
         self.pipeline = "full"
         # Signals
         self.run_pipeline_signal.connect(self.run_pipeline)
+        # Cameras
+        self.cameras = dict()
+        # Textured mesh and ptc
+        self.textured_mesh = None
+        self.point_cloud = None
 
     def set_input_folder(self, input_folder) -> None:
         """Set the input folder for the SFM worker.
@@ -58,6 +67,52 @@ class SfmWorker(QObject):
         else:
             self.log.emit(f"Pipeline '{pipeline}' is not supported. Going with 'full' instead.")
             self.pipeline = "full"
+
+    def get_point_cloud(self) -> pv.PolyData:
+        """Get the point cloud.
+
+        Returns:
+            pv.PolyData: The point cloud.
+        """
+        if not self.point_cloud:
+            self.read_pyvista_meshes()
+        return self.point_cloud
+    
+    def get_textured_mesh(self) -> pv.PolyData:
+        """Get the textured mesh.
+
+        Returns:
+            pv.PolyData: The textured mesh.
+        """
+        if not self.textured_mesh:
+            self.read_pyvista_meshes()
+        return self.textured_mesh
+    
+    def get_cameras(self) -> dict:
+        """Get the cameras.
+
+        Returns:
+            dict: The cameras with arrows as axis in the world frame.
+        """
+        if not self.output_folder:
+            self.log.emit("Output folder is not set to obtain cameras.")
+            return {}
+        if not self.cameras:
+            scale, global_R_scaled, global_t_scaled = compute_transformation_from_sfm(
+                sfm_path=os.path.join(self.output_folder, "cameras.sfm"))
+            camera_poses = get_camera_poses_utm_frame(sfm_path=os.path.join(self.output_folder, "cameras.sfm"),
+                                                      scale=scale,
+                                                      rotation=global_R_scaled,
+                                                      translation=global_t_scaled)
+            if self.create_pyvista_cameras(camera_poses=camera_poses):
+                self.log.emit("Cameras created successfully.")
+            else:
+                self.log.emit("Failed to create cameras, no point cloud or mesh set.")
+                return {}
+        return self.cameras
+    
+    # endregion
+    # region Methods
 
     def create_project_file(self, pipeline: str) -> bool:
         """Create a project file for the SFM worker.
@@ -133,6 +188,54 @@ class SfmWorker(QObject):
         # Remove the cache folder
         shutil.rmtree(self.cache_folder)
 
+    def read_pyvista_meshes(self) -> None:
+        """Read the meshes and cameras from the output folder.
+        """
+        if not self.output_folder:
+            self.log.emit("Output folder is not set.")
+            return
+        ptc_path = os.path.join(self.output_folder, "pointCloud.ply")
+        text_path = os.path.join(self.output_folder, "Texturing", "texturedMesh.obj")
+        if not os.path.exists(ptc_path) or not os.path.exists(text_path):
+            self.log.emit("Point cloud or textured mesh not found in the output folder.")
+            return
+        # Read the point cloud and textured mesh
+        self.point_cloud = pv.read(ptc_path)
+        self.textured_mesh = pv.read(text_path)
+
+    def create_pyvista_cameras(self, camera_poses: dict) -> bool:
+        """Create the cameras from the camera poses.
+
+        Args:
+            camera_poses (dict): The camera poses.
+
+        Returns:
+            bool: True if the cameras were created successfully, False otherwise.
+        """
+        if not self.point_cloud or not self.textured_mesh:
+            self.log.emit("Point cloud or textured mesh not found.")
+            return False
+        # Create a pyvista object axis for each camera
+        axis_length = 1
+        for key, cam in camera_poses.items():
+            # Create a pyvista object axis
+            pos = cam["position"]
+            rot = cam["orientation"]
+            # Extract world-space directions for each axis
+            x_axis = rot[:, 0] * axis_length
+            y_axis = rot[:, 1] * axis_length
+            z_axis = rot[:, 2] * axis_length
+            # Create arrows for each axis
+            x_arrow = pv.Arrow(start=pos, direction=x_axis, tip_length=0.2 * axis_length, tip_radius=0.02 * axis_length, shaft_radius=0.01 * axis_length)
+            y_arrow = pv.Arrow(start=pos, direction=y_axis, tip_length=0.2 * axis_length, tip_radius=0.02 * axis_length, shaft_radius=0.01 * axis_length)
+            z_arrow = pv.Arrow(start=pos, direction=z_axis, tip_length=0.2 * axis_length, tip_radius=0.02 * axis_length, shaft_radius=0.01 * axis_length)
+            # Add the arrows to the cameras in the class
+            self.cameras[key] = {"x": x_arrow, "y": y_arrow, "z": z_arrow}
+        return True
+
+    # endregion
+    # region Slots
+
     @Slot()
     def run_pipeline(self) -> None:
         """Run the specified pipeline.
@@ -176,11 +279,31 @@ class SfmWorker(QObject):
         self.log.emit("Organizing output folder...")
         self.organize_output_folder()
         self.log.emit("Output folder organized. Applying scale and frame transform...")
-        transform_data_frames(
-            sfm_path=os.path.join(self.output_folder, "cameras.sfm"),
-            cloud_path=os.path.join(self.output_folder, "pointCloud.ply"),
+        # Apply the scale and frame transform to the point cloud and textured mesh
+        scale, global_R_scaled, global_t_scaled = compute_transformation_from_sfm(
+            sfm_path=os.path.join(self.output_folder, "cameras.sfm"))
+        camera_poses = get_camera_poses_utm_frame(sfm_path=os.path.join(self.output_folder, "cameras.sfm"),
+                                                  scale=scale,
+                                                  rotation=global_R_scaled,
+                                                  translation=global_t_scaled)
+        transform_save_obj(
             obj_path=os.path.join(self.output_folder, "Texturing", "texturedMesh.obj"),
-            mtl_path=os.path.join(self.output_folder, "Texturing", "texturedMesh.mtl")
+            mtl_path=os.path.join(self.output_folder, "Texturing", "texturedMesh.mtl"),
+            scale=scale,
+            rotation=global_R_scaled,
+            t=global_t_scaled
+        )
+        transform_save_ptc(
+            filename=os.path.join(self.output_folder, "pointCloud.ply"),
+            scale=scale,
+            rotation=global_R_scaled,
+            t=global_t_scaled
         )
         self.log.emit("Transformations applied to world frame with UTM coordinate system.")
+        # Reading the transformed point cloud and textured mesh and creating the cameras
+        self.log.emit("Reading meshes and cameras...")
+        self.read_pyvista_meshes()
+        self.create_pyvista_cameras(camera_poses=camera_poses)
+        self.log.emit("Meshes and cameras read.")
+        self.log.emit("Pipeline finished succesfully!")
         self.finished.emit()

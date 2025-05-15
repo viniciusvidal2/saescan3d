@@ -64,6 +64,8 @@ class MainWindow(QMainWindow):
         self.thread.start()
         # Log splitter
         self.log_splitter = "--------------------------------"
+        # Camera actors
+        self.camera_actors = list()
         
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -118,7 +120,7 @@ class MainWindow(QMainWindow):
         self.process_btn_layout.setAlignment(Qt.AlignTop)
         self.process_btn_layout.setSpacing(10)
         self.process_btn_layout.setContentsMargins(0, 0, 0, 0)
-        self.process_sfm_btn = QPushButton("Run SFM")
+        self.process_sfm_btn = QPushButton("Run SfM")
         self.process_sfm_btn.setEnabled(True)
         self.process_sfm_btn.clicked.connect(self.process_sfm_btn_callback)
         self.process_btn_layout.addWidget(self.process_sfm_btn)
@@ -151,8 +153,14 @@ class MainWindow(QMainWindow):
         self.mesh_vis_btn = QPushButton("Mesh")
         self.mesh_vis_btn.setEnabled(True)
         self.mesh_vis_btn.clicked.connect(self.mesh_vis_btn_callback)
+        self.camera_btn = QPushButton("Show Cameras")
+        self.camera_btn.setCheckable(True)
+        self.camera_btn.setEnabled(True)
+        self.camera_btn.setChecked(False)
+        self.camera_btn.clicked.connect(self.camera_btn_callback)
         self.vis_btn_layout.addWidget(self.ptc_vis_btn)
         self.vis_btn_layout.addWidget(self.mesh_vis_btn)
+        self.vis_btn_layout.addWidget(self.camera_btn)
         layout.addWidget(self.visualizer.interactor, stretch=1)
         layout.addLayout(self.vis_btn_layout)
 
@@ -203,6 +211,8 @@ class MainWindow(QMainWindow):
             self.log_output(f"Images found in the folder: {len(images)}")
             for img in images:
                 self.log_output(f" - {os.path.basename(img)}")
+            # Set the input folder in the worker
+            self.worker.set_input_folder(self.images_text_edit.text())
         else:
             self.log_output("No folder selected.")
         self.enable_buttons()
@@ -218,6 +228,8 @@ class MainWindow(QMainWindow):
         if folder:
             self.sfm_output_text_edit.setText(folder)
             self.log_output(f"Selected output folder: {folder}")
+            # Set the output folder in the worker
+            self.worker.set_output_folder(self.sfm_output_text_edit.text())
         else:
             self.log_output("No folder selected.")
         self.enable_buttons()
@@ -243,14 +255,74 @@ class MainWindow(QMainWindow):
         """Callback for the point cloud visualization button.
         """
         # Placeholder for point cloud visualization
-        self.text_panel.append("Visualizing Point Cloud...")
-        # Here you would call the actual point cloud visualization function
+        self.log_output(self.log_splitter)
+        self.disable_buttons()
+        self.log_output("Displaying point cloud...")
+        ptc_polydata = self.worker.get_point_cloud()
+        if ptc_polydata is not None:
+            self.visualizer.clear()
+            self.visualizer.add_mesh(
+                ptc_polydata, scalars=ptc_polydata.point_data["RGB"], rgb=True)
+            self.visualizer.reset_camera()
+            self.visualizer.show()
+            self.log_output("Point Cloud data displayed.")
+        else:
+            self.log_output("No point cloud data available.")
+        self.enable_buttons()
 
     def mesh_vis_btn_callback(self) -> None:
         """Callback for the mesh visualization button.
         """
-        # Placeholder for mesh visualization
-        # Here you would call the actual mesh visualization function
+        # Placeholder for point cloud visualization
+        self.log_output(self.log_splitter)
+        self.disable_buttons()
+        self.log_output("Displaying mesh...")
+        mesh_polydata = self.worker.get_textured_mesh()
+        if mesh_polydata is not None:
+            self.visualizer.clear()
+            self.visualizer.add_mesh(
+                mesh_polydata, rgb=True, show_edges=False)
+            self.visualizer.reset_camera()
+            self.visualizer.show()
+            self.log_output("Mesh data displayed.")
+        else:
+            self.log_output("No textured mesh data available.")
+        self.enable_buttons()
+
+    def camera_btn_callback(self) -> None:
+        """Callback for the camera visualization button.
+        """
+        self.log_output(self.log_splitter)
+        if self.camera_btn.isChecked():
+            cameras = self.worker.get_cameras()
+            # Check if cameras are available
+            if not cameras:
+                self.log_output("No camera data available.")
+                self.camera_btn.setChecked(False)
+                self.enable_buttons()
+                return
+            # Show the cameras by adding the actors
+            self.log_output("Showing cameras...")
+            self.camera_btn.setText("Hide Cameras")
+            for cam in cameras.values():
+                self.camera_actors.append(self.visualizer.add_mesh(cam["x"], color="red"))
+                self.camera_actors.append(self.visualizer.add_mesh(cam["y"], color="green"))
+                self.camera_actors.append(self.visualizer.add_mesh(cam["z"], color="blue"))
+            self.visualizer.reset_camera()
+            self.visualizer.render()
+        else:
+            # Remove the cameras by removing the actors
+            if self.camera_actors:
+                self.camera_btn.setText("Show Cameras")
+                self.log_output("Hiding cameras...")
+                for actor in self.camera_actors:
+                    self.visualizer.remove_actor(actor, reset_camera=False)
+                self.camera_actors.clear()
+                self.visualizer.reset_camera()
+                self.visualizer.render()
+            else:
+                self.camera_btn.setChecked(True)
+                self.log_output("No camera displayed for us to hide.")
 
     # endregion
     # region Logging
