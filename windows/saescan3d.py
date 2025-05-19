@@ -13,7 +13,7 @@ from modules.tools import get_file_placement_path
 from modules.sfm_worker import SfmWorker
 
 
-class MainWindow(QMainWindow):
+class Saescan3dWindow(QMainWindow):
     # region Main Window Creation
     def __init__(self) -> None:
         """Initialize the main window with a background image and buttons.
@@ -458,7 +458,7 @@ def main() -> None:
     timer.start(200)
 
     # After 6 seconds, close splash and open main window
-    window = MainWindow()
+    window = Saescan3dWindow()
     QTimer.singleShot(1000, timer.stop)
     QTimer.singleShot(1000, splash.close)
     QTimer.singleShot(1000, window.show)
