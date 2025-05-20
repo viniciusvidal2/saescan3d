@@ -5,7 +5,8 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QPalette, QBrush, QFont, QGuiApplication
 from PySide6.QtCore import Qt, QTimer
-from windows.saescan3d import Saescan3dWindow
+from windows.saescan3d_window import Saescan3dWindow
+from windows.smartmodel_window import SmartmodelWindow
 from modules.tools import get_file_placement_path
 
 
@@ -19,9 +20,9 @@ class MainWindow(QMainWindow):
         # The windows we can open from the main interface
         self.child_windows = []
         # Variables to control labels
-        self.label_size = (300, 300)
+        self.label_size = (300, 180)
         self.saescan3d_label_path = get_file_placement_path("resources/saescan3d.png")
-        self.smartmodel_label_path = get_file_placement_path("resources/saescan3d.png")
+        self.smartmodel_label_path = get_file_placement_path("resources/smartmodel.png")
 
         # Title, icons, and position/sizes
         self.setWindowTitle("SAEScan3D")
@@ -148,7 +149,14 @@ class MainWindow(QMainWindow):
     def smartmodel_btn_callback(self) -> None:
         """Open the Smartmodel window.
         """
-        pass
+        # Create and add to the list of child windows
+        # The child windows are stored in a list to be closed when the main window is closed
+        smartmodel_window = SmartmodelWindow()
+        self.child_windows.append(smartmodel_window)
+        smartmodel_window.setAttribute(Qt.WA_DeleteOnClose)
+        smartmodel_window.destroyed.connect(
+            lambda: self.child_windows.remove(smartmodel_window))
+        smartmodel_window.show()
 
     def closeEvent(self, event: None) -> None:
         """Close all child windows when the main window is closed.

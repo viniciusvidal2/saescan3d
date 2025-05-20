@@ -16,7 +16,7 @@ from modules.sfm_worker import SfmWorker
 class Saescan3dWindow(QMainWindow):
     # region Main Window Creation
     def __init__(self) -> None:
-        """Initialize the main window with a background image and buttons.
+        """Initialize the window with a background image and buttons.
         """
         super().__init__()
         # Title, icons, and position/sizes
@@ -81,7 +81,7 @@ class Saescan3dWindow(QMainWindow):
         self.setPalette(palette)
 
     def setup_input_data_section(self, layout: QVBoxLayout) -> None:
-        """Set up the btns for HSX, RAW and BIN files.
+        """Set up the btns for image and output folders.
         Args:
             layout (QVBoxLayout): The layout to add the btns to.
         """
@@ -457,7 +457,7 @@ def main() -> None:
     timer.timeout.connect(update_loading_text)
     timer.start(200)
 
-    # After 6 seconds, close splash and open main window
+    # After some seconds, close splash and open main window
     window = Saescan3dWindow()
     QTimer.singleShot(1000, timer.stop)
     QTimer.singleShot(1000, splash.close)
