@@ -110,6 +110,8 @@ class SmartmodelWindow(QMainWindow):
         self.input_file_browse_btn = QPushButton("Browse")
         self.input_file_browse_btn.clicked.connect(self.input_file_browse_btn_callback)
         self.mesh_ptc_btn = QPushButton("Mesh the Point Cloud!")
+        self.mesh_ptc_btn.setEnabled(False)
+        self.mesh_ptc_btn.setVisible(False)
         self.mesh_ptc_btn.clicked.connect(self.mesh_ptc_btn_callback)
         self.input_file_layout.addWidget(input_file_label)
         self.input_file_layout.addWidget(self.input_file_text_edit)
@@ -218,8 +220,12 @@ class SmartmodelWindow(QMainWindow):
             if file_path.endswith(".ply"):
                 # We must create a mesh from the point cloud
                 self.log_output("PLY file selected. Click 'Mesh the Point Cloud!' to process it and create a mesh.")
+                self.mesh_ptc_btn.setVisible(True)
+                self.mesh_ptc_btn.setEnabled(True)
                 self.ply_file_path = file_path
             elif file_path.endswith(".obj"):
+                self.mesh_ptc_btn.setVisible(False)
+                self.mesh_ptc_btn.setEnabled(False)
                 # We must load the mesh from the OBJ file and its MTL file
                 self.log_output("OBJ file selected. Reading the materials in the file directory...")
                 self.obj_file_path = file_path
@@ -303,7 +309,8 @@ class SmartmodelWindow(QMainWindow):
         """Disable the buttons in the processing section.
         """
         self.input_file_browse_btn.setEnabled(False)
-        self.mesh_ptc_btn.setEnabled(False)
+        if self.mesh_ptc_btn.isVisible():
+            self.mesh_ptc_btn.setEnabled(False)
         self.distance_tool_btn.setEnabled(False)
         self.area_tool_btn.setEnabled(False)
         self.volume_tool_btn.setEnabled(False)
@@ -315,7 +322,8 @@ class SmartmodelWindow(QMainWindow):
         """Enable the buttons in the processing section.
         """
         self.input_file_browse_btn.setEnabled(True)
-        self.mesh_ptc_btn.setEnabled(True)
+        if self.mesh_ptc_btn.isVisible():
+            self.mesh_ptc_btn.setEnabled(True)
         self.distance_tool_btn.setEnabled(True)
         self.area_tool_btn.setEnabled(True)
         self.volume_tool_btn.setEnabled(True)
