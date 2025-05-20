@@ -406,6 +406,7 @@ class Saescan3dWindow(QMainWindow):
         self.mesh_vis_btn.setEnabled(False)
         self.images_browse_btn.setEnabled(False)
         self.sfm_output_browse_btn.setEnabled(False)
+        self.camera_btn.setEnabled(False)
         self.images_text_edit.setEnabled(False)
         self.sfm_output_text_edit.setEnabled(False)
         
@@ -417,6 +418,7 @@ class Saescan3dWindow(QMainWindow):
         self.mesh_vis_btn.setEnabled(True)
         self.images_browse_btn.setEnabled(True)
         self.sfm_output_browse_btn.setEnabled(True)
+        self.camera_btn.setEnabled(True)
         self.images_text_edit.setEnabled(True)
         self.sfm_output_text_edit.setEnabled(True)
 

@@ -14,6 +14,9 @@ from modules.tools import get_file_placement_path
 from modules.helper_distance_tool import (
     enable_point_selection_for_distance_measurement, disable_point_selection_for_distance_measurement
 )
+from modules.helper_area_tool import (
+    enable_polygon_selection_for_area_measurement, disable_polygon_selection_for_area_measurement
+)
 from modules.worker_obj import WorkerObj
 
 
@@ -284,7 +287,17 @@ class SmartmodelWindow(QMainWindow):
             disable_point_selection_for_distance_measurement(self)
 
     def area_tool_btn_callback(self) -> None:
-        pass
+        """Callback for the area tool button.
+        """
+        self.log_output(self.log_splitter)
+        if self.area_tool_btn.isChecked():
+            self.log_output("Area tool activated.")
+            self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaON.ico")))
+            enable_polygon_selection_for_area_measurement(self)
+        else:
+            self.log_output("Area tool deactivated.")
+            self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaOFF.ico")))
+            disable_polygon_selection_for_area_measurement(self)
 
     def volume_tool_btn_callback(self) -> None:
         pass
