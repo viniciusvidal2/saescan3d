@@ -7,9 +7,8 @@ from PySide6.QtGui import QPixmap, QPalette, QBrush, QFont, QGuiApplication, QRe
 from PySide6.QtCore import Qt, QTimer, QThread
 from pyvistaqt import QtInteractor
 import os
-import pyvista as pv
 import numpy as np
-from modules.tools import get_file_placement_path
+from modules.tools import get_file_placement_path, load_textured_mesh
 from modules.sfm_worker import SfmWorker
 
 
@@ -274,7 +273,7 @@ class Saescan3dWindow(QMainWindow):
             # Remove the mesh actor from the visualizer if the name matches
             if self.mesh_actor is not None:
                 for actor in list(self.visualizer.actors.values()):
-                    if "mesh_part" in actor.name:
+                    if actor.name == "Mesh":
                         self.visualizer.remove_actor(actor, reset_camera=False)
                 self.mesh_actor = None
             # Create and add the point cloud actor
@@ -304,28 +303,8 @@ class Saescan3dWindow(QMainWindow):
             self.visualizer.remove_actor(self.ptc_actor, reset_camera=False)
             self.ptc_actor = None
         # Create and add the mesh actor
-        material_to_texture = self.parse_mtl_file(mtl_path)
-        reader = pv.OBJReader(obj_path)
-        self.mesh_actor = reader.read()
-        obj_dir = os.path.dirname(obj_path)
-        if isinstance(self.mesh_actor, pv.MultiBlock):
-            for i, part in enumerate(self.mesh_actor):
-                # Try to get material name and then texture path
-                mapper = part.GetMapper() if hasattr(part, 'GetMapper') else None
-                mat_name = None
-                if mapper and mapper.GetArrayName(0):
-                    mat_name = mapper.GetArrayName(0)
-                texture = None
-                if mat_name and mat_name in material_to_texture:
-                    tex_path = os.path.join(obj_dir, material_to_texture[mat_name])
-                    if os.path.isfile(tex_path):
-                        texture = pv.read_texture(tex_path)
-                # Add the mesh part with texture if available
-                self.visualizer.add_mesh(part, name=f"mesh_part_{i}", texture=texture)
-        else:
-            texture_file = next(iter(material_to_texture.values()), None)
-            texture = pv.read_texture(os.path.join(obj_dir, texture_file))
-            self.visualizer.add_mesh(self.mesh_actor, name="mesh_part_0", texture=texture)
+        self.mesh_actor, texture = load_textured_mesh(obj_path=obj_path)
+        self.visualizer.add_mesh(self.mesh_actor, name="Mesh", texture=texture)
         self.prepare_actors_for_visualization()
         self.visualizer.show()
         self.log_output("Mesh data displayed.")
@@ -379,19 +358,6 @@ class Saescan3dWindow(QMainWindow):
                 mesh.points -= center
         self.visualizer.reset_camera()
         self.visualizer.render()
-
-    def parse_mtl_file(self, mtl_path):
-        material_to_texture = {}
-        current_material = None
-        with open(mtl_path, 'r') as file:
-            for line in file:
-                stripped = line.strip()
-                if stripped.lower().startswith("newmtl"):
-                    current_material = stripped.split(None, 1)[1]
-                elif stripped.lower().startswith("map_kd") and current_material:
-                    texture_file = stripped.split(None, 1)[1]
-                    material_to_texture[current_material] = texture_file
-        return material_to_texture
 
     # endregion
     # region Logging

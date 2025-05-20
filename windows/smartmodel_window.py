@@ -8,7 +8,8 @@ from PySide6.QtGui import (
 )
 from PySide6.QtCore import Qt, QTimer
 from pyvistaqt import QtInteractor
-from modules.tools import get_file_placement_path
+import os
+from modules.tools import get_file_placement_path, load_textured_mesh
 
 
 class SmartmodelWindow(QMainWindow):
@@ -41,22 +42,43 @@ class SmartmodelWindow(QMainWindow):
                 margin: 1px;
             }
         """)
-        # Left panel layout - data input btns, process btns and text panel
-        self.left_panel = QWidget()
-        left_layout = QVBoxLayout(self.left_panel)
-        self.setup_input_data_section(left_layout)
-        self.setup_visualizer_section(left_layout)
-        # Right panel with the label
+        # Left up panel layout - data input btns
+        self.left_up_panel = QWidget()
+        left_up_layout = QVBoxLayout(self.left_up_panel)
+        self.setup_input_data_section(left_up_layout)
+        # Left down panel layout - visualizer and tools
+        self.left_down_panel = QWidget()
+        self.left_down_panel.setStyleSheet("""
+            QWidget {
+                background-color: #e0e0e0;  /* Light gray */
+                border: 2px solid #555;     /* Darker gray border */
+                border-radius: 8px;         /* Optional rounded corners */
+            }
+        """)
+        left_down_layout = QVBoxLayout(self.left_down_panel)
+        self.setup_visualizer_section(left_down_layout)
+        # Right panel with the text panel
         self.right_panel = QWidget()
         right_layout = QVBoxLayout(self.right_panel)
         self.setup_right_panel(right_layout)
         # Add the panels to the main layout
+        self.left_panel = QWidget()
+        left_layout = QVBoxLayout(self.left_panel)
+        left_layout.addWidget(self.left_up_panel)
+        left_layout.addWidget(self.left_down_panel)
+        left_layout.setStretch(0, 1)
         splitter.addWidget(self.left_panel)
         splitter.addWidget(self.right_panel)
-        splitter.setSizes([2 * self.width() // 3, self.width() // 3])
+        splitter.setSizes([3 * self.width() // 4, self.width() // 4])
         main_layout.addWidget(splitter)
         # Log splitter
         self.log_splitter = "--------------------------------"
+        # Paths in the project
+        self.ply_file_path = ""
+        self.obj_file_path = ""
+        self.mtl_file_path = ""
+        # Actors and polydata variables
+        self.mesh_actor = None
         
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -122,9 +144,25 @@ class SmartmodelWindow(QMainWindow):
         self.volume_tool_btn.setCheckable(True)
         self.volume_tool_btn.setChecked(False)
         self.volume_tool_btn.clicked.connect(self.volume_tool_btn_callback)
+        self.delete_tool_btn = QPushButton()
+        self.delete_tool_btn.setIcon(QIcon(get_file_placement_path("resources/deletePointsOFF.ico")))
+        self.delete_tool_btn.setToolTip("Mesh volume calculation tool")
+        self.delete_tool_btn.setEnabled(True)
+        self.delete_tool_btn.setCheckable(True)
+        self.delete_tool_btn.setChecked(False)
+        self.delete_tool_btn.clicked.connect(self.delete_tool_btn_callback)
+        self.elevation_tool_btn = QPushButton()
+        self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationOFF.ico")))
+        self.elevation_tool_btn.setToolTip("Mesh elevation calculation tool")
+        self.elevation_tool_btn.setEnabled(True)
+        self.elevation_tool_btn.setCheckable(True)
+        self.elevation_tool_btn.setChecked(False)
+        self.elevation_tool_btn.clicked.connect(self.elevation_tool_btn_callback)
         self.vis_btn_layout.addWidget(self.distance_tool_btn)
         self.vis_btn_layout.addWidget(self.area_tool_btn)
         self.vis_btn_layout.addWidget(self.volume_tool_btn)
+        self.vis_btn_layout.addWidget(self.delete_tool_btn)
+        self.vis_btn_layout.addWidget(self.elevation_tool_btn)
         # Pyvista visualizer
         self.visualizer = QtInteractor(self)
         self.visualizer.set_background(color="gray")
@@ -162,12 +200,32 @@ class SmartmodelWindow(QMainWindow):
     def input_file_browse_btn_callback(self) -> None:
         """Open a file dialog to select the input file.
         """
+        self.log_output(self.log_splitter)
+        self.log_output("Opening file dialog to select input file...")
         options = QFileDialog.Options()
-        file_name, _ = QFileDialog.getOpenFileName(self, "Select Input File", "",
-                                                   "All Files (*);;PLY Files (*.ply);;OBJ Files (*.obj)",
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Input File", "",
+                                                   "OBJ Files (*.obj);;PLY Files (*.ply)",
                                                    options=options)
-        if file_name:
-            self.input_file_text_edit.setText(file_name)
+        if file_path:
+            self.input_file_text_edit.setText(file_path)
+            # Do the proper processing according to the file type
+            if file_path.endswith(".ply"):
+                # We must create a mesh from the point cloud
+                self.log_output("PLY file selected. Click 'Mesh the Point Cloud!' to process it and create a mesh.")
+                self.ply_file_path = file_path
+            elif file_path.endswith(".obj"):
+                # We must load the mesh from the OBJ file and its MTL file
+                self.log_output("OBJ file selected. Reading the materials in the file directory...")
+                self.obj_file_path = file_path
+                self.mtl_file_path = file_path.replace(".obj", ".mtl")
+                if not os.path.exists(self.mtl_file_path):
+                    self.log_output("No MTL file found. Please ensure the OBJ file has a corresponding MTL file.")
+                    self.log_output("Process wont run until the MTL file is found.")
+                else:
+                    self.log_output("MTL file found. Loading the mesh with texture...")
+                    mesh, texture = load_textured_mesh(obj_path=self.obj_file_path)
+                    self.visualizer.add_mesh(mesh, name="mesh_actor", texture=texture)
+                    self.log_output("Mesh loaded succesfully.")
 
     def mesh_ptc_btn_callback(self) -> None:
         pass
@@ -181,7 +239,13 @@ class SmartmodelWindow(QMainWindow):
     def volume_tool_btn_callback(self) -> None:
         pass
 
-    # endregion
+    def delete_tool_btn_callback(self) -> None:
+        pass
+
+    def elevation_tool_btn_callback(self) -> None:
+        pass
+
+    # endregion    
     # region Logging
 
     def log_output(self, msg: str) -> None:
