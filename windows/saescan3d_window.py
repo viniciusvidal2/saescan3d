@@ -8,8 +8,10 @@ from PySide6.QtCore import Qt, QTimer, QThread
 from pyvistaqt import QtInteractor
 import os
 import numpy as np
-from modules.tools import get_file_placement_path, load_textured_mesh
-from modules.sfm_worker import SfmWorker
+import pyvista as pv
+from modules.tools import get_file_placement_path
+from modules.worker_sfm import WorkerSfm
+from modules.worker_obj import WorkerObj
 
 
 class Saescan3dWindow(QMainWindow):
@@ -57,7 +59,7 @@ class Saescan3dWindow(QMainWindow):
         splitter.setSizes([2 * self.width() // 3, self.width() // 3])
         main_layout.addWidget(splitter)
         # Create the SFM worker to process the data in a thread
-        self.worker = SfmWorker()
+        self.worker = WorkerSfm()
         self.thread = QThread()
         self.signals_connected = False  # Flag to prevent duplicate connections
         self.worker.moveToThread(self.thread)
@@ -69,6 +71,7 @@ class Saescan3dWindow(QMainWindow):
         self.camera_actors = list()
         self.ptc_actor = None
         self.mesh_actor = None
+        self.mesh_texture = None
         
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -275,7 +278,6 @@ class Saescan3dWindow(QMainWindow):
                 for actor in list(self.visualizer.actors.values()):
                     if actor.name == "Mesh":
                         self.visualizer.remove_actor(actor, reset_camera=False)
-                self.mesh_actor = None
             # Create and add the point cloud actor
             self.ptc_actor = self.visualizer.add_mesh(
                 ptc_polydata, scalars=ptc_polydata.point_data["RGB"], rgb=True, name="PointCloud")
@@ -302,9 +304,35 @@ class Saescan3dWindow(QMainWindow):
         if self.ptc_actor is not None:
             self.visualizer.remove_actor(self.ptc_actor, reset_camera=False)
             self.ptc_actor = None
-        # Create and add the mesh actor
-        self.mesh_actor, texture = load_textured_mesh(obj_path=obj_path)
-        self.visualizer.add_mesh(self.mesh_actor, name="Mesh", texture=texture)
+        # Load the mesh with texture in a separate thread so it does not block the window with big meshes
+        if not self.mesh_actor:
+            self.log_output("Loading the mesh with texture. It will show up in the visualizer once it is loaded.")
+            self.log_output("It can take some time depending on the mesh size, please wait...")
+            self.thread = QThread()
+            self.worker = WorkerObj(self.obj_file_path)
+            self.worker.moveToThread(self.thread)
+            self.thread.started.connect(self.worker.run)
+            self.worker.finished.connect(self._on_mesh_loaded)
+            self.worker.finished.connect(self.thread.quit)
+            self.worker.finished.connect(self.worker.deleteLater)
+            self.thread.finished.connect(self.thread.deleteLater)
+            self.thread.start()
+        else:
+            self.log_output("Mesh data already displayed.")
+            self.enable_buttons()
+    
+    def _on_mesh_loaded(self, mesh_actor: pv.PolyData, mesh_texture: pv.Texture) -> None:
+        """Callback for when the mesh is loaded.
+        Args:
+            mesh_actor (pv.PolyData): The loaded mesh actor.
+            mesh_texture (pv.Texture): The loaded mesh texture.
+        """
+        self.mesh_actor = mesh_actor
+        self.mesh_texture = mesh_texture
+        self.visualizer.add_mesh(self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
+        self.visualizer.reset_camera()
+        self.visualizer.render()
+        self.log_output("Mesh loaded successfully.")
         self.prepare_actors_for_visualization()
         self.visualizer.show()
         self.log_output("Mesh data displayed.")

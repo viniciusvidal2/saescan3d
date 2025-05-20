@@ -13,14 +13,14 @@ from modules.scale_ptcs import (
     transform_save_obj, transform_save_ptc
 )
 
-class SfmWorker(QObject):
+class WorkerSfm(QObject):
     # Signals
     finished = Signal()
     log = Signal(str)
     run_pipeline_signal = Signal()
     # region Constructor, gets, sets
     def __init__(self):
-        """Initialize the SfmWorker class.
+        """Initialize the WorkerSfm class.
         """
         super().__init__()
         # Folders

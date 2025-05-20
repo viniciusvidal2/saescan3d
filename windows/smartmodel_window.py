@@ -6,10 +6,15 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import (
     QPixmap, QPalette, QBrush, QFont, QGuiApplication, QResizeEvent, QIcon
 )
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import Qt, QTimer, QThread
 from pyvistaqt import QtInteractor
 import os
-from modules.tools import get_file_placement_path, load_textured_mesh
+import pyvista as pv
+from modules.tools import get_file_placement_path
+from modules.helper_distance_tool import (
+    enable_point_selection_for_distance_measurement, disable_point_selection_for_distance_measurement
+)
+from modules.worker_obj import WorkerObj
 
 
 class SmartmodelWindow(QMainWindow):
@@ -66,7 +71,6 @@ class SmartmodelWindow(QMainWindow):
         left_layout = QVBoxLayout(self.left_panel)
         left_layout.addWidget(self.left_up_panel)
         left_layout.addWidget(self.left_down_panel)
-        left_layout.setStretch(0, 1)
         splitter.addWidget(self.left_panel)
         splitter.addWidget(self.right_panel)
         splitter.setSizes([3 * self.width() // 4, self.width() // 4])
@@ -79,6 +83,7 @@ class SmartmodelWindow(QMainWindow):
         self.mtl_file_path = ""
         # Actors and polydata variables
         self.mesh_actor = None
+        self.mesh_texture = None
         
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -125,35 +130,35 @@ class SmartmodelWindow(QMainWindow):
         self.vis_btn_layout.setContentsMargins(0, 0, 0, 0)
         self.distance_tool_btn = QPushButton()
         self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceOFF.ico")))
-        self.distance_tool_btn.setToolTip("Mesh distance calculation tool")
+        self.distance_tool_btn.setToolTip("Calculate distance between points")
         self.distance_tool_btn.setEnabled(True)
         self.distance_tool_btn.setCheckable(True)
         self.distance_tool_btn.setChecked(False)
         self.distance_tool_btn.clicked.connect(self.distance_tool_btn_callback)
         self.area_tool_btn = QPushButton()
         self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaOFF.ico")))
-        self.area_tool_btn.setToolTip("Mesh area calculation tool")
+        self.area_tool_btn.setToolTip("Calculate area of interest")
         self.area_tool_btn.setEnabled(True)
         self.area_tool_btn.setCheckable(True)
         self.area_tool_btn.setChecked(False)
         self.area_tool_btn.clicked.connect(self.area_tool_btn_callback)
         self.volume_tool_btn = QPushButton()
         self.volume_tool_btn.setIcon(QIcon(get_file_placement_path("resources/volumeOFF.ico")))
-        self.volume_tool_btn.setToolTip("Mesh volume calculation tool")
+        self.volume_tool_btn.setToolTip("Calculate mesh volume")
         self.volume_tool_btn.setEnabled(True)
         self.volume_tool_btn.setCheckable(True)
         self.volume_tool_btn.setChecked(False)
         self.volume_tool_btn.clicked.connect(self.volume_tool_btn_callback)
         self.delete_tool_btn = QPushButton()
         self.delete_tool_btn.setIcon(QIcon(get_file_placement_path("resources/deletePointsOFF.ico")))
-        self.delete_tool_btn.setToolTip("Mesh volume calculation tool")
+        self.delete_tool_btn.setToolTip("Delete selected points")
         self.delete_tool_btn.setEnabled(True)
         self.delete_tool_btn.setCheckable(True)
         self.delete_tool_btn.setChecked(False)
         self.delete_tool_btn.clicked.connect(self.delete_tool_btn_callback)
         self.elevation_tool_btn = QPushButton()
         self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationOFF.ico")))
-        self.elevation_tool_btn.setToolTip("Mesh elevation calculation tool")
+        self.elevation_tool_btn.setToolTip("Elevation tool")
         self.elevation_tool_btn.setEnabled(True)
         self.elevation_tool_btn.setCheckable(True)
         self.elevation_tool_btn.setChecked(False)
@@ -195,7 +200,7 @@ class SmartmodelWindow(QMainWindow):
         super().resizeEvent(event)
 
     # endregion
-    # region Button Callbacks
+    # region Input buttons Callbacks
 
     def input_file_browse_btn_callback(self) -> None:
         """Open a file dialog to select the input file.
@@ -222,16 +227,49 @@ class SmartmodelWindow(QMainWindow):
                     self.log_output("No MTL file found. Please ensure the OBJ file has a corresponding MTL file.")
                     self.log_output("Process wont run until the MTL file is found.")
                 else:
-                    self.log_output("MTL file found. Loading the mesh with texture...")
-                    mesh, texture = load_textured_mesh(obj_path=self.obj_file_path)
-                    self.visualizer.add_mesh(mesh, name="mesh_actor", texture=texture)
-                    self.log_output("Mesh loaded succesfully.")
+                    # Load the mesh with texture in a separate thread so it does not block the window with big meshes
+                    self.log_output("MTL file found. Loading the mesh with texture. It will show up in the visualizer once it is loaded.")
+                    self.log_output("It can take some time depending on the mesh size, please wait...")
+                    self.thread = QThread()
+                    self.worker = WorkerObj(self.obj_file_path)
+                    self.worker.moveToThread(self.thread)
+                    self.thread.started.connect(self.worker.run)
+                    self.worker.finished.connect(self._on_mesh_loaded)
+                    self.worker.finished.connect(self.thread.quit)
+                    self.worker.finished.connect(self.worker.deleteLater)
+                    self.thread.finished.connect(self.thread.deleteLater)
+                    self.thread.start()
 
+    def _on_mesh_loaded(self, mesh_actor: pv.PolyData, mesh_texture: pv.Texture) -> None:
+        """Callback for when the mesh is loaded.
+        Args:
+            mesh_actor (pv.PolyData): The loaded mesh actor.
+            mesh_texture (pv.Texture): The loaded mesh texture.
+        """
+        self.mesh_actor = mesh_actor
+        self.mesh_texture = mesh_texture
+        self.visualizer.add_mesh(self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
+        self.visualizer.reset_camera()
+        self.visualizer.render()
+        self.log_output("Mesh loaded successfully.")
+                    
     def mesh_ptc_btn_callback(self) -> None:
         pass
 
+    # endregion
+    # region Visualizer tools Callbacks
+
     def distance_tool_btn_callback(self) -> None:
-        pass
+        """Callback for the distance tool button.
+        """
+        if self.distance_tool_btn.isChecked():
+            self.log_output("Distance tool activated.")
+            self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceON.ico")))
+            enable_point_selection_for_distance_measurement(self)
+        else:
+            self.log_output("Distance tool deactivated.")
+            self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceOFF.ico")))
+            disable_point_selection_for_distance_measurement(self)
 
     def area_tool_btn_callback(self) -> None:
         pass
@@ -245,7 +283,7 @@ class SmartmodelWindow(QMainWindow):
     def elevation_tool_btn_callback(self) -> None:
         pass
 
-    # endregion    
+    # endregion
     # region Logging
 
     def log_output(self, msg: str) -> None:
