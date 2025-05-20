@@ -206,6 +206,7 @@ class SmartmodelWindow(QMainWindow):
         """Open a file dialog to select the input file.
         """
         self.log_output(self.log_splitter)
+        self.disable_buttons()
         self.log_output("Opening file dialog to select input file...")
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Input File", "",
@@ -239,6 +240,9 @@ class SmartmodelWindow(QMainWindow):
                     self.worker.finished.connect(self.worker.deleteLater)
                     self.thread.finished.connect(self.thread.deleteLater)
                     self.thread.start()
+        else:
+            self.log_output("No file selected.")
+            self.enable_buttons()
 
     def _on_mesh_loaded(self, mesh_actor: pv.PolyData, mesh_texture: pv.Texture) -> None:
         """Callback for when the mesh is loaded.
@@ -252,6 +256,7 @@ class SmartmodelWindow(QMainWindow):
         self.visualizer.reset_camera()
         self.visualizer.render()
         self.log_output("Mesh loaded successfully.")
+        self.enable_buttons()
                     
     def mesh_ptc_btn_callback(self) -> None:
         pass
@@ -262,6 +267,7 @@ class SmartmodelWindow(QMainWindow):
     def distance_tool_btn_callback(self) -> None:
         """Callback for the distance tool button.
         """
+        self.log_output(self.log_splitter)
         if self.distance_tool_btn.isChecked():
             self.log_output("Distance tool activated.")
             self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceON.ico")))
@@ -301,6 +307,8 @@ class SmartmodelWindow(QMainWindow):
         self.distance_tool_btn.setEnabled(False)
         self.area_tool_btn.setEnabled(False)
         self.volume_tool_btn.setEnabled(False)
+        self.delete_tool_btn.setEnabled(False)
+        self.elevation_tool_btn.setEnabled(False)
         self.input_file_text_edit.setEnabled(False)
         
     def enable_buttons(self) -> None:
@@ -311,6 +319,8 @@ class SmartmodelWindow(QMainWindow):
         self.distance_tool_btn.setEnabled(True)
         self.area_tool_btn.setEnabled(True)
         self.volume_tool_btn.setEnabled(True)
+        self.delete_tool_btn.setEnabled(True)
+        self.elevation_tool_btn.setEnabled(True)
         self.input_file_text_edit.setEnabled(True)
 
     # endregion

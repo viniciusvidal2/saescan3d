@@ -59,10 +59,10 @@ class Saescan3dWindow(QMainWindow):
         splitter.setSizes([2 * self.width() // 3, self.width() // 3])
         main_layout.addWidget(splitter)
         # Create the SFM worker to process the data in a thread
-        self.worker = WorkerSfm()
+        self.worker_sfm = WorkerSfm()
         self.thread = QThread()
         self.signals_connected = False  # Flag to prevent duplicate connections
-        self.worker.moveToThread(self.thread)
+        self.worker_sfm.moveToThread(self.thread)
         self.connect_worker_signals()
         self.thread.start()
         # Log splitter
@@ -193,8 +193,8 @@ class Saescan3dWindow(QMainWindow):
         """
         if self.signals_connected:
             return
-        self.worker.log.connect(self.log_output)
-        self.worker.finished.connect(self.enable_buttons)
+        self.worker_sfm.log.connect(self.log_output)
+        self.worker_sfm.finished.connect(self.enable_buttons)
         self.signals_connected = True
         self.thread.finished.connect(self.thread.deleteLater)
 
@@ -219,7 +219,7 @@ class Saescan3dWindow(QMainWindow):
             for img in images:
                 self.log_output(f" - {os.path.basename(img)}")
             # Set the input folder in the worker
-            self.worker.set_input_folder(self.images_text_edit.text())
+            self.worker_sfm.set_input_folder(self.images_text_edit.text())
         else:
             self.log_output("No folder selected.")
         self.enable_buttons()
@@ -236,7 +236,7 @@ class Saescan3dWindow(QMainWindow):
             self.sfm_output_text_edit.setText(folder)
             self.log_output(f"Selected project folder: {folder}")
             # Set the output folder in the worker
-            self.worker.set_output_folder(folder)
+            self.worker_sfm.set_output_folder(folder)
             # If there is already point cloud data in the folder, log it
             if os.path.exists(os.path.join(folder, "pointCloud.ply")):
                 self.log_output("Point cloud data already exists in the project folder.")
@@ -257,12 +257,12 @@ class Saescan3dWindow(QMainWindow):
             return
         self.disable_buttons()
         # Set the input and output folders in the worker
-        self.worker.set_input_folder(self.images_text_edit.text())
-        self.worker.set_output_folder(self.sfm_output_text_edit.text())
+        self.worker_sfm.set_input_folder(self.images_text_edit.text())
+        self.worker_sfm.set_output_folder(self.sfm_output_text_edit.text())
         # Set the pipeline to run
-        self.worker.set_pipeline("full")
+        self.worker_sfm.set_pipeline("full")
         # Run the SFM process in a separate thread
-        QTimer.singleShot(0, self.worker.run_pipeline_signal.emit)
+        QTimer.singleShot(0, self.worker_sfm.run_pipeline_signal.emit)
     
     def ptc_vis_btn_callback(self) -> None:
         """Callback for the point cloud visualization button.
@@ -271,7 +271,7 @@ class Saescan3dWindow(QMainWindow):
         self.log_output(self.log_splitter)
         self.disable_buttons()
         self.log_output("Displaying point cloud...")
-        ptc_polydata = self.worker.read_pyvista_cloud()
+        ptc_polydata = self.worker_sfm.read_pyvista_cloud()
         if ptc_polydata is not None:
             # Remove the mesh actor from the visualizer if the name matches
             if self.mesh_actor is not None:
@@ -295,7 +295,7 @@ class Saescan3dWindow(QMainWindow):
         self.log_output(self.log_splitter)
         self.disable_buttons()
         self.log_output("Displaying mesh...")
-        obj_path, mtl_path = self.worker.get_textured_mesh_paths()
+        obj_path, mtl_path = self.worker_sfm.get_textured_mesh_paths()
         if obj_path == "" or mtl_path == "":
             self.log_output("No textured mesh data available.")
             self.enable_buttons()
@@ -308,17 +308,19 @@ class Saescan3dWindow(QMainWindow):
         if not self.mesh_actor:
             self.log_output("Loading the mesh with texture. It will show up in the visualizer once it is loaded.")
             self.log_output("It can take some time depending on the mesh size, please wait...")
-            self.thread = QThread()
-            self.worker = WorkerObj(self.obj_file_path)
-            self.worker.moveToThread(self.thread)
-            self.thread.started.connect(self.worker.run)
-            self.worker.finished.connect(self._on_mesh_loaded)
-            self.worker.finished.connect(self.thread.quit)
-            self.worker.finished.connect(self.worker.deleteLater)
-            self.thread.finished.connect(self.thread.deleteLater)
-            self.thread.start()
+            self.thread_obj = QThread()
+            self.worker_obj = WorkerObj(obj_path=obj_path)
+            self.worker_obj.moveToThread(self.thread_obj)
+            self.thread_obj.started.connect(self.worker_obj.run)
+            self.worker_obj.finished.connect(self._on_mesh_loaded)
+            self.worker_obj.finished.connect(self.thread_obj.quit)
+            self.worker_obj.finished.connect(self.worker_obj.deleteLater)
+            self.thread_obj.finished.connect(self.thread_obj.deleteLater)
+            self.thread_obj.start()
         else:
-            self.log_output("Mesh data already displayed.")
+            self.visualizer.add_mesh(self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
+            self.visualizer.reset_camera()
+            self.visualizer.render()
             self.enable_buttons()
     
     def _on_mesh_loaded(self, mesh_actor: pv.PolyData, mesh_texture: pv.Texture) -> None:
@@ -343,7 +345,7 @@ class Saescan3dWindow(QMainWindow):
         """
         self.log_output(self.log_splitter)
         if self.camera_btn.isChecked():
-            cameras = self.worker.get_cameras()
+            cameras = self.worker_sfm.get_cameras()
             # Check if cameras are available
             if not cameras:
                 self.log_output("No camera data available.")
@@ -376,7 +378,7 @@ class Saescan3dWindow(QMainWindow):
         """Prepare the actors for visualization by shifting to the center of the scene.
         """
         # Get the center of the scene
-        center = self.worker.get_scene_center()
+        center = self.worker_sfm.get_scene_center()
         # Shift the actors to the center
         for actor in list(self.visualizer.actors.values()):
             mesh = actor.GetMapper().GetInputAsDataSet()

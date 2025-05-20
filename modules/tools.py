@@ -3,7 +3,6 @@ import os
 import trimesh
 import numpy as np
 import open3d as o3d
-import pyvista as pv
 
 
 def get_file_placement_path(relative_path: str) -> str:

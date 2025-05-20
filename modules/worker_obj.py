@@ -5,10 +5,16 @@ import pyvista as pv
 
 
 class WorkerObj(QObject):
+    # Signals to communicate with the main thread
     finished = Signal(object, object)
     error = Signal(str)
 
-    def __init__(self, obj_path):
+    def __init__(self, obj_path: str) -> None:
+        """Initialize the WorkerObj class.
+
+        Args:
+            obj_path (str): Path to the OBJ file.
+        """
         super().__init__()
         self.obj_path = obj_path
 
@@ -45,7 +51,9 @@ class WorkerObj(QObject):
             texture = None
         return mesh, texture
 
-    def run(self):
+    def run(self) -> None:
+        """Run the worker thread to load the OBJ file and emit signals.
+        """
         try:
             mesh_actor, mesh_texture = self.load_textured_mesh(obj_path=self.obj_path)
             self.finished.emit(mesh_actor, mesh_texture)
