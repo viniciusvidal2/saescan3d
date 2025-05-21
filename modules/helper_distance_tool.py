@@ -10,7 +10,7 @@ def add_sphere(window: QMainWindow, point: np.ndarray) -> None:
         window (QMainWindow): The main window instance.
         point (np.ndarray): The point where the sphere will be placed.
     """
-    sphere = pv.Sphere(radius=0.5, center=point, theta_resolution=32, phi_resolution=32)
+    sphere = pv.Sphere(radius=0.5, center=point, theta_resolution=64, phi_resolution=64)
     actor = window.visualizer.add_mesh(sphere, color='green', reset_camera=False)
     window.selected_points.append((point, actor))
 

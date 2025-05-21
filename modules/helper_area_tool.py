@@ -11,7 +11,7 @@ def add_area_marker(window: QMainWindow, point: np.ndarray) -> None:
         point (np.ndarray): The point we picked
     """
     # Add a sphere marker at the selected point
-    sphere = pv.Sphere(radius=0.5, center=point, theta_resolution=32, phi_resolution=32)
+    sphere = pv.Sphere(radius=0.5, center=point, theta_resolution=64, phi_resolution=64)
     actor = window.visualizer.add_mesh(sphere, color='green', reset_camera=False)
     window.polygon_points.append((point, actor))
 
