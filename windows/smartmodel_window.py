@@ -17,6 +17,9 @@ from modules.helper_distance_tool import (
 from modules.helper_area_tool import (
     enable_polygon_selection_for_area_measurement, disable_polygon_selection_for_area_measurement
 )
+from modules.helper_elevation_tool import (
+    enable_elevation_tool, disable_elevation_tool
+)
 from modules.worker_obj import WorkerObj
 
 
@@ -306,7 +309,17 @@ class SmartmodelWindow(QMainWindow):
         pass
 
     def elevation_tool_btn_callback(self) -> None:
-        pass
+        """Callback for the elevation tool button.
+        """
+        self.log_output(self.log_splitter)
+        if self.elevation_tool_btn.isChecked():
+            self.log_output("Elevation tool activated.")
+            self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationON.ico")))
+            enable_elevation_tool(self)
+        else:
+            self.log_output("Elevation tool deactivated.")
+            self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationOFF.ico")))
+            disable_elevation_tool(self)
 
     # endregion
     # region Logging
