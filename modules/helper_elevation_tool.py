@@ -21,7 +21,6 @@ def enable_elevation_tool(window: QMainWindow) -> None:
     def widget_callback(*args):
         if hasattr(window, "_elevation_plane_widget"):
             z = window._elevation_plane_widget.GetOrigin()[2]
-            print(f"Current Z plane: {z}")
             apply_elevation_colormap(window=window, reference_z=z)
     window._elevation_plane_widget = window.visualizer.add_plane_widget(
         callback=widget_callback,

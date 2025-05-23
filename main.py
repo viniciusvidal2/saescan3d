@@ -96,7 +96,7 @@ class MainWindow(QMainWindow):
                 background-color: #8a8a8a;
             }
         """)
-        self.smartmodel_btn = QPushButton("Interactive Visualizer", self)
+        self.smartmodel_btn = QPushButton("Mesh Manipulator", self)
         self.smartmodel_btn.clicked.connect(self.smartmodel_btn_callback)
         self.smartmodel_btn.setSizePolicy(
             QSizePolicy.Preferred, QSizePolicy.Expanding)

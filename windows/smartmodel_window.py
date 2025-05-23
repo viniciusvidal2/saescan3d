@@ -20,6 +20,9 @@ from modules.helper_area_tool import (
 from modules.helper_elevation_tool import (
     enable_elevation_tool, disable_elevation_tool
 )
+from modules.helper_delete_tool import (
+    enable_box_selection_for_deletion, disable_box_selection_for_deletion
+)
 from modules.worker_obj import WorkerObj
 
 
@@ -82,7 +85,7 @@ class SmartmodelWindow(QMainWindow):
         splitter.setSizes([3 * self.width() // 4, self.width() // 4])
         main_layout.addWidget(splitter)
         # Log splitter
-        self.log_splitter = "--------------------------------"
+        self.log_splitter = "------------------"
         # Paths in the project
         self.ply_file_path = ""
         self.obj_file_path = ""
@@ -176,6 +179,10 @@ class SmartmodelWindow(QMainWindow):
         self.vis_btn_layout.addWidget(self.volume_tool_btn)
         self.vis_btn_layout.addWidget(self.delete_tool_btn)
         self.vis_btn_layout.addWidget(self.elevation_tool_btn)
+        self.visualizer_tools_btns = [
+            self.distance_tool_btn, self.area_tool_btn, self.volume_tool_btn, 
+            self.delete_tool_btn, self.elevation_tool_btn
+        ]
         # Pyvista visualizer
         self.visualizer = QtInteractor(self)
         self.visualizer.set_background(color="gray")
@@ -273,6 +280,17 @@ class SmartmodelWindow(QMainWindow):
     def mesh_ptc_btn_callback(self) -> None:
         pass
 
+    def disable_other_tools(self, btn) -> None:
+        """Disable all other tools except the one passed as argument.
+
+        Args:
+            btn (QPushButton): The button to keep enabled.
+        """
+        for button in self.visualizer_tools_btns:
+            if button != btn:
+                button.setChecked(False)
+                button.setEnabled(False)
+
     # endregion
     # region Visualizer tools Callbacks
 
@@ -283,11 +301,13 @@ class SmartmodelWindow(QMainWindow):
         if self.distance_tool_btn.isChecked():
             self.log_output("Distance tool activated.")
             self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceON.ico")))
+            self.disable_other_tools(self.distance_tool_btn)
             enable_point_selection_for_distance_measurement(self)
         else:
             self.log_output("Distance tool deactivated.")
             self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceOFF.ico")))
             disable_point_selection_for_distance_measurement(self)
+            self.enable_buttons()
 
     def area_tool_btn_callback(self) -> None:
         """Callback for the area tool button.
@@ -296,17 +316,31 @@ class SmartmodelWindow(QMainWindow):
         if self.area_tool_btn.isChecked():
             self.log_output("Area tool activated.")
             self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaON.ico")))
+            self.disable_other_tools(self.area_tool_btn)
             enable_polygon_selection_for_area_measurement(self)
         else:
             self.log_output("Area tool deactivated.")
             self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaOFF.ico")))
             disable_polygon_selection_for_area_measurement(self)
+            self.enable_buttons()
 
     def volume_tool_btn_callback(self) -> None:
         pass
 
     def delete_tool_btn_callback(self) -> None:
-        pass
+        """Callback for the delete tool button.
+        """
+        self.log_output(self.log_splitter)
+        if self.delete_tool_btn.isChecked():
+            self.log_output("Delete tool activated.")
+            self.delete_tool_btn.setIcon(QIcon(get_file_placement_path("resources/deletePointsON.ico")))
+            self.disable_other_tools(self.delete_tool_btn)
+            enable_box_selection_for_deletion(self)
+        else:
+            self.log_output("Delete tool deactivated.")
+            self.delete_tool_btn.setIcon(QIcon(get_file_placement_path("resources/deletePointsOFF.ico")))
+            disable_box_selection_for_deletion(self)
+            self.enable_buttons()
 
     def elevation_tool_btn_callback(self) -> None:
         """Callback for the elevation tool button.
@@ -315,11 +349,13 @@ class SmartmodelWindow(QMainWindow):
         if self.elevation_tool_btn.isChecked():
             self.log_output("Elevation tool activated.")
             self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationON.ico")))
+            self.disable_other_tools(self.elevation_tool_btn)
             enable_elevation_tool(self)
         else:
             self.log_output("Elevation tool deactivated.")
             self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationOFF.ico")))
             disable_elevation_tool(self)
+            self.enable_buttons()
 
     # endregion
     # region Logging
