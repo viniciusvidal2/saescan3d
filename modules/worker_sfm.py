@@ -155,7 +155,8 @@ class WorkerSfm(QObject):
                    "--cache", self.cache_folder,
                    "--toNode", "CameraInit"]
         try:
-            subprocess.run(command, check=True)
+            subprocess.run(command, check=True, 
+                           creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
         except subprocess.CalledProcessError as e:
             self.log.emit(f"Error creating project file: {e}")
             return False
@@ -292,7 +293,8 @@ class WorkerSfm(QObject):
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                bufsize=1
+                bufsize=1,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
             )
             # Print the steps to the user in the GUI
             pattern = re.compile(r"\[\d+/11\]")

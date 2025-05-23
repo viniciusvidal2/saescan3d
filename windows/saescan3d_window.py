@@ -252,8 +252,8 @@ class Saescan3dWindow(QMainWindow):
         """
         self.log_output(self.log_splitter)
         # Check if the input folder is set
-        if not self.images_text_edit.text():
-            self.log_output("Please select the input images folder.")
+        if not self.images_text_edit.text() or not self.sfm_output_text_edit.text():
+            self.log_output("Input images folder or project folder not set.")
             return
         self.disable_buttons()
         # Set the input and output folders in the worker
