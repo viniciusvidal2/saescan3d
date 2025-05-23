@@ -271,7 +271,7 @@ class Saescan3dWindow(QMainWindow):
         self.log_output(self.log_splitter)
         self.disable_buttons()
         self.log_output("Displaying point cloud...")
-        ptc_polydata = self.worker_sfm.read_pyvista_cloud()
+        ptc_polydata = self.worker_sfm.get_pyvista_cloud()
         if ptc_polydata is not None:
             # Remove the mesh actor from the visualizer if the name matches
             if self.mesh_actor is not None:

@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, QTimer, QThread
 from pyvistaqt import QtInteractor
 import os
 import pyvista as pv
-from modules.tools import get_file_placement_path
+from modules.tools import get_file_placement_path, read_pyvista_cloud
 from modules.helper_distance_tool import (
     enable_point_selection_for_distance_measurement, disable_point_selection_for_distance_measurement
 )
@@ -225,7 +225,7 @@ class SmartmodelWindow(QMainWindow):
         self.log_output("Opening file dialog to select input file...")
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Input File", "",
-                                                   "OBJ Files (*.obj);;PLY Files (*.ply)",
+                                                   "OBJ Files (*.obj);PLY Files (*.ply)",
                                                    options=options)
         if file_path:
             self.input_file_text_edit.setText(file_path)
@@ -236,6 +236,11 @@ class SmartmodelWindow(QMainWindow):
                 self.mesh_ptc_btn.setVisible(True)
                 self.mesh_ptc_btn.setEnabled(True)
                 self.ply_file_path = file_path
+                ptc_polydata = read_pyvista_cloud(self.ply_file_path)
+                self.mesh_actor = self.visualizer.add_mesh(ptc_polydata, name="mesh_actor", 
+                                                           scalars=ptc_polydata.point_data["RGB"], rgb=True)
+                self.visualizer.reset_camera()
+                self.visualizer.render()
             elif file_path.endswith(".obj"):
                 self.mesh_ptc_btn.setVisible(False)
                 self.mesh_ptc_btn.setEnabled(False)
@@ -278,7 +283,19 @@ class SmartmodelWindow(QMainWindow):
         self.enable_buttons()
                     
     def mesh_ptc_btn_callback(self) -> None:
-        pass
+        """Callback for the mesh point cloud button.
+        """
+        self.log_output(self.log_splitter)
+        self.log_output("Processing the point cloud to create a mesh...")
+        # Apply a Delaunay triangulation to the point cloud
+        ptc_polydata = self.mesh_actor.GetMapper().GetInput()
+        ptc_polydata = ptc_polydata.delaunay_2d()
+        # Update the mesh in the visualizer
+        self.visualizer.remove_actor("mesh_actor")
+        self.mesh_actor = self.visualizer.add_mesh(ptc_polydata, name="mesh_actor", 
+                                                   scalars=ptc_polydata.point_data["RGB"], rgb=True, reset_camera=False)
+        self.log_output("Mesh created successfully.")
+        self.enable_buttons()
 
     def disable_other_tools(self, btn) -> None:
         """Disable all other tools except the one passed as argument.

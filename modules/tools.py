@@ -3,6 +3,7 @@ import os
 import trimesh
 import numpy as np
 import open3d as o3d
+import pyvista as pv
 
 
 def get_file_placement_path(relative_path: str) -> str:
@@ -80,3 +81,23 @@ def parse_mtl_file(mtl_path: str) -> dict:
                 texture_file = stripped.split(None, 1)[1]
                 material_to_texture[current_material] = texture_file
     return material_to_texture
+
+
+def read_pyvista_cloud(ptc_path: str) -> pv.PolyData:
+        """Read the cloud from the output folder with proper method to obtain double resolution in the points.
+
+        Args:
+            ptc_path (str): Path to the point cloud file.
+
+        Returns:
+            pv.PolyData: The point cloud.
+        """
+        # Read the point cloud and convert to pyvista
+        point_cloud_o3d = o3d.io.read_point_cloud(ptc_path)
+        point_cloud_polydata = pv.PolyData(np.asarray(point_cloud_o3d.points))
+        if point_cloud_o3d.has_colors():
+            point_cloud_polydata.point_data["RGB"] = (
+                np.asarray(point_cloud_o3d.colors) * 255).astype(np.uint8)
+        if point_cloud_o3d.has_normals():
+            point_cloud_polydata.point_data["Normals"] = np.asarray(point_cloud_o3d.normals)
+        return point_cloud_polydata

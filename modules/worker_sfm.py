@@ -7,7 +7,9 @@ import shutil
 import open3d as o3d
 import json
 import re
-from modules.tools import get_file_placement_path, convert_obj_to_ply
+from modules.tools import (
+    get_file_placement_path, convert_obj_to_ply, read_pyvista_cloud
+)
 from modules.scale_ptcs import (
     get_camera_poses_utm_frame, compute_transformation_from_sfm,
     transform_save_obj, transform_save_ptc
@@ -123,9 +125,27 @@ class WorkerSfm(QObject):
         if self.point_cloud_polydata:
             self.scene_center = self.point_cloud_polydata.center
         else:
-            self.point_cloud_polydata = self.read_pyvista_cloud()
+            ptc_path = os.path.join(self.output_folder, "pointCloud.ply")
+            if not os.path.exists(ptc_path):
+                self.log.emit("Point cloud not found in the output folder.")
+                return None
+            self.point_cloud_polydata = read_pyvista_cloud(ptc_path=ptc_path)
             self.scene_center = self.point_cloud_polydata.center
         return self.scene_center
+    
+    def get_pyvista_cloud(self) -> pv.PolyData:
+        """Get the point cloud.
+
+        Returns:
+            pv.PolyData: The point cloud.
+        """
+        if not self.point_cloud_polydata:
+            ptc_path = os.path.join(self.output_folder, "pointCloud.ply")
+            if not os.path.exists(ptc_path):
+                self.log.emit("Point cloud not found in the output folder.")
+                return None
+            self.point_cloud_polydata = read_pyvista_cloud(ptc_path=ptc_path)
+        return self.point_cloud_polydata
     
     # endregion
     # region Methods
@@ -204,33 +224,6 @@ class WorkerSfm(QObject):
         o3d.io.write_point_cloud(ptc_path, ptc)
         # Remove the cache folder
         shutil.rmtree(self.cache_folder)
-
-    def read_pyvista_cloud(self) -> pv.PolyData:
-        """Read the cloud from the output folder with proper method to obtain double resolution in the points.
-
-        Returns:
-            pv.PolyData: The point cloud.
-        """
-        if self.point_cloud_polydata:
-            return self.point_cloud_polydata
-        # Checking files and paths
-        if not self.output_folder:
-            self.log.emit("Output folder is not set.")
-            return
-        ptc_path = os.path.join(self.output_folder, "pointCloud.ply")
-        if not os.path.exists(ptc_path):
-            self.log.emit("Point cloud not found in the output folder.")
-            return
-        # Read the point cloud and convert to pyvista
-        point_cloud_o3d = o3d.io.read_point_cloud(ptc_path)
-        point_cloud_polydata = pv.PolyData(np.asarray(point_cloud_o3d.points))
-        if point_cloud_o3d.has_colors():
-            point_cloud_polydata.point_data["RGB"] = (
-                np.asarray(point_cloud_o3d.colors) * 255).astype(np.uint8)
-        if point_cloud_o3d.has_normals():
-            point_cloud_polydata.point_data["Normals"] = np.asarray(point_cloud_o3d.normals)
-        self.point_cloud_polydata = point_cloud_polydata
-        return self.point_cloud_polydata
 
     def create_pyvista_cameras(self, camera_poses: dict) -> bool:
         """Create the cameras from the camera poses.
@@ -324,14 +317,15 @@ class WorkerSfm(QObject):
             rotation=global_R_scaled,
             t=global_t_scaled
         )
+        ptc_path = os.path.join(self.output_folder, "pointCloud.ply")
         transform_save_ptc(
-            filename=os.path.join(self.output_folder, "pointCloud.ply"),
+            filename=ptc_path,
             scale=scale,
             rotation=global_R_scaled,
             t=global_t_scaled
         )
         self.log.emit("Transformations applied to world frame with UTM coordinate system.")
-        self.point_cloud_polydata = self.read_pyvista_cloud()
+        self.point_cloud_polydata = read_pyvista_cloud(ptc_path=ptc_path)
         self.scene_center = self.point_cloud_polydata.center
         # Working with cameras
         self.log.emit("Reading cameras...")
