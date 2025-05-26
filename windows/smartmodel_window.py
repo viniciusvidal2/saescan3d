@@ -1,4 +1,3 @@
-from sys import exit
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QSplashScreen, QTextEdit,
     QHBoxLayout, QVBoxLayout, QLabel, QWidget, QFileDialog, QSplitter, QLineEdit
@@ -8,8 +7,10 @@ from PySide6.QtGui import (
 )
 from PySide6.QtCore import Qt, QTimer, QThread
 from pyvistaqt import QtInteractor
+from sys import exit
 import os
 import pyvista as pv
+import shutil
 from modules.tools import get_file_placement_path, read_pyvista_cloud
 from modules.helper_distance_tool import (
     enable_point_selection_for_distance_measurement, disable_point_selection_for_distance_measurement
@@ -93,6 +94,7 @@ class SmartmodelWindow(QMainWindow):
         # Actors and polydata variables
         self.mesh_actor = None
         self.mesh_texture = None
+        self.ptc_actor = None
         
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -201,7 +203,11 @@ class SmartmodelWindow(QMainWindow):
         self.text_panel.setPlaceholderText(
             "Logs, status, or descriptions here...")
         self.text_panel.setReadOnly(True)
+        self.download_meshes_btn = QPushButton("Download Meshes")
+        self.download_meshes_btn.setEnabled(False)
+        self.download_meshes_btn.clicked.connect(self.download_meshes_btn_callback)        
         layout.addWidget(self.text_panel)
+        layout.addWidget(self.download_meshes_btn)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Resize the contents when the window is resized.
@@ -225,7 +231,7 @@ class SmartmodelWindow(QMainWindow):
         self.log_output("Opening file dialog to select input file...")
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Input File", "",
-                                                   "OBJ Files (*.obj);PLY Files (*.ply)",
+                                                   "OBJ or PLY Files (*.obj *.ply);;OBJ Files (*.obj);;PLY Files (*.ply)",
                                                    options=options)
         if file_path:
             self.input_file_text_edit.setText(file_path)
@@ -237,8 +243,8 @@ class SmartmodelWindow(QMainWindow):
                 self.mesh_ptc_btn.setEnabled(True)
                 self.ply_file_path = file_path
                 ptc_polydata = read_pyvista_cloud(self.ply_file_path)
-                self.mesh_actor = self.visualizer.add_mesh(ptc_polydata, name="mesh_actor", 
-                                                           scalars=ptc_polydata.point_data["RGB"], rgb=True)
+                self.ptc_actor = self.visualizer.add_mesh(ptc_polydata, name="ptc_actor", 
+                                                          scalars=ptc_polydata.point_data["RGB"], rgb=True)
                 self.visualizer.reset_camera()
                 self.visualizer.render()
             elif file_path.endswith(".obj"):
@@ -274,9 +280,8 @@ class SmartmodelWindow(QMainWindow):
             mesh_actor (pv.PolyData): The loaded mesh actor.
             mesh_texture (pv.Texture): The loaded mesh texture.
         """
-        self.mesh_actor = mesh_actor
         self.mesh_texture = mesh_texture
-        self.visualizer.add_mesh(self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
+        self.mesh_actor = self.visualizer.add_mesh(mesh_actor, name="mesh_actor", texture=self.mesh_texture)
         self.visualizer.reset_camera()
         self.visualizer.render()
         self.log_output("Mesh loaded successfully.")
@@ -288,12 +293,12 @@ class SmartmodelWindow(QMainWindow):
         self.log_output(self.log_splitter)
         self.log_output("Processing the point cloud to create a mesh...")
         # Apply a Delaunay triangulation to the point cloud
-        ptc_polydata = self.mesh_actor.GetMapper().GetInput()
-        ptc_polydata = ptc_polydata.delaunay_2d()
+        ptc_polydata = self.ptc_actor.GetMapper().GetInput()
+        mesh_polydata = ptc_polydata.delaunay_2d()
         # Update the mesh in the visualizer
-        self.visualizer.remove_actor("mesh_actor")
-        self.mesh_actor = self.visualizer.add_mesh(ptc_polydata, name="mesh_actor", 
-                                                   scalars=ptc_polydata.point_data["RGB"], rgb=True, reset_camera=False)
+        self.visualizer.remove_actor("ptc_actor")
+        self.mesh_actor = self.visualizer.add_mesh(mesh_polydata, name="mesh_actor", 
+                                                   scalars=mesh_polydata.point_data["RGB"], rgb=True, reset_camera=False)
         self.log_output("Mesh created successfully.")
         self.enable_buttons()
 
@@ -307,6 +312,58 @@ class SmartmodelWindow(QMainWindow):
             if button != btn:
                 button.setChecked(False)
                 button.setEnabled(False)
+
+    def download_meshes_btn_callback(self) -> None:
+        """Callback for the download meshes button.
+        """
+        self.log_output(self.log_splitter)
+        self.log_output("Downloading meshes...")
+        if self.ptc_actor is None and self.mesh_actor is None:
+            self.log_output("No meshes to download. Please load a point cloud or mesh first.")
+            self.enable_buttons()
+            return
+        # Get the folder to download the meshes to
+        download_folder = QFileDialog.getExistingDirectory(self, "Select Download Folder",
+                                                              options=QFileDialog.ShowDirsOnly)
+        if not download_folder:
+            self.log_output("No folder selected. Download cancelled.")
+            self.enable_buttons()
+            return
+        self.log_output(f"Meshes will be downloaded to: {download_folder}")
+        if self.ptc_actor is not None:
+            # If there is a point cloud actor, we can save it and the mesh as a PLY files
+            ply_file_path = os.path.join(download_folder, "pointCloud.ply")
+            self.log_output(f"Saving point cloud to: {ply_file_path}")
+            polydata=pv.wrap(self.ptc_actor.GetMapper().GetInput())
+            polydata.save(ply_file_path, texture="RGB")
+            if self.mesh_actor is not None:
+                mesh_file_path = os.path.join(download_folder, "Mesh.ply")
+                self.log_output(f"Saving mesh to: {mesh_file_path}")
+                polydata = pv.wrap(self.mesh_actor.GetMapper().GetInput())
+                polydata.save(mesh_file_path, texture="RGB")
+        else:
+            # There is only textured mesh loaded in our environment, so save it
+            if self.mesh_actor is not None:
+                source_obj_folder = os.path.dirname(self.obj_file_path)
+                # Copy MTL file with textures to the download folder
+                mtl_file_name = os.path.basename(self.mtl_file_path)
+                mtl_file_path = os.path.join(download_folder, mtl_file_name)
+                shutil.copy(self.mtl_file_path, mtl_file_path)
+                for file in os.listdir(source_obj_folder):
+                    if file.endswith(".png"):
+                        # Copy texture files to the download folder
+                        source_texture_path = os.path.join(source_obj_folder, file)
+                        destination_texture_path = os.path.join(download_folder, file)
+                        shutil.copy(source_texture_path, destination_texture_path)
+                # Save the OBJ file with the MTL reference
+                obj_file_name = os.path.basename(self.obj_file_path)
+                obj_file_path = os.path.join(download_folder, obj_file_name)
+                self.log_output(f"Saving mesh to: {obj_file_path}")
+                polydata = pv.wrap(self.mesh_actor.GetMapper().GetInput())
+                polydata.save(obj_file_path, texture=self.mesh_texture)
+        # For now, we will just log that the button was clicked
+        self.log_output("Meshes downloaded successfully.")
+        self.enable_buttons()
 
     # endregion
     # region Visualizer tools Callbacks
@@ -396,6 +453,7 @@ class SmartmodelWindow(QMainWindow):
         self.delete_tool_btn.setEnabled(False)
         self.elevation_tool_btn.setEnabled(False)
         self.input_file_text_edit.setEnabled(False)
+        self.download_meshes_btn.setEnabled(False)
         
     def enable_buttons(self) -> None:
         """Enable the buttons in the processing section.
@@ -409,6 +467,7 @@ class SmartmodelWindow(QMainWindow):
         self.delete_tool_btn.setEnabled(True)
         self.elevation_tool_btn.setEnabled(True)
         self.input_file_text_edit.setEnabled(True)
+        self.download_meshes_btn.setEnabled(True)
 
     # endregion
 # region Main call
