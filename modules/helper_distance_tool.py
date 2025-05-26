@@ -63,9 +63,10 @@ def enable_point_selection_for_distance_measurement(window: QMainWindow) -> None
         # Get the closest point index from the mesh
         if point is None or not isinstance(point, np.ndarray):
             return
-        point_id = window.mesh_actor.find_closest_point(point)
+        mesh_polydata = window.mesh_actor.GetMapper().GetInputAsDataSet()
+        point_id = mesh_polydata.find_closest_point(point)
         # Create a sphere at the selected point
-        selected_point = window.mesh_actor.points[point_id]
+        selected_point = mesh_polydata.points[point_id]
         add_sphere(window, selected_point)
         if len(window.selected_points) == 2:
             connect_and_print_distance(window)

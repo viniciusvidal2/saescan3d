@@ -8,13 +8,14 @@ def enable_elevation_tool(window: QMainWindow) -> None:
         window (QMainWindow): The main window of the application.
     """
     # Get the bounds of the mesh actor
-    bounds = window.mesh_actor.bounds
+    mesh_polydata = window.mesh_actor.GetMapper().GetInput()
+    bounds = mesh_polydata.bounds
     z_min, z_max = bounds[4], bounds[5]
     z_center = (z_min + z_max) / 2
     window._elevation_bounds = (z_min, z_max)
-    # Backup the scalar data
-    if not hasattr(window, "_elevation_colormap_backup"):
-        window._elevation_colormap_backup = window.mesh_actor.active_scalars_name
+    # Backup the original actor
+    window._mesh_actor_backup = window.mesh_actor.copy()
+    window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
     # Apply initial colormap and show scalar bar
     apply_elevation_colormap(window=window, reference_z=z_center)
     # Add draggable plane widget
@@ -43,11 +44,16 @@ def disable_elevation_tool(window: QMainWindow) -> None:
     if hasattr(window, "_elevation_plane_widget"):
         window._elevation_plane_widget.EnabledOff()
         del window._elevation_plane_widget
-    # Restore the original scalar data
-    if hasattr(window, "_elevation_colormap_backup"):
-        # window.mesh_actor.clear_data()
-        window.mesh_actor = window.visualizer.add_mesh(window.mesh_actor, name="mesh_actor", texture=window.mesh_texture, reset_camera=False)
-        del window._elevation_colormap_backup
+    # Remove the elevation mesh actor
+    if hasattr(window, "_elevation_mesh_actor"):
+        window.visualizer.remove_actor(window._elevation_mesh_actor, reset_camera=False)
+        del window._elevation_mesh_actor
+    # Restore the original mesh actor
+    if hasattr(window, "_mesh_actor_backup"):
+        mesh_polydata = window._mesh_actor_backup.GetMapper().GetInput()
+        window.mesh_actor = window.visualizer.add_mesh(mesh_polydata, name="mesh_actor", 
+                                                       texture=window.mesh_texture, reset_camera=False)
+        del window._mesh_actor_backup
     # Remove the scalar bar
     try:
         window.visualizer.remove_scalar_bar()
@@ -70,16 +76,20 @@ def apply_elevation_colormap(window: QMainWindow, reference_z: float) -> None:
     if reference_z > z_bound_max:
         reference_z = z_bound_max - 0.1
     # Get the Z elevation data
-    window.mesh_actor.point_data['Z Elevation'] = window.mesh_actor.points[:, 2].copy()
+    mesh_polydata = window._mesh_actor_backup.GetMapper().GetInput()
+    mesh_polydata.point_data['Z Elevation'] = mesh_polydata.points[:, 2].copy()
     # Remove any previous scalar bar
     try:
         window.visualizer.remove_scalar_bar()
     except Exception:
         pass
     # Set the active scalars to Z Elevation
-    window.visualizer.add_mesh(
-        window.mesh_actor,
+    if hasattr(window, "_elevation_mesh_actor"):
+        window.visualizer.remove_actor(window._elevation_mesh_actor, reset_camera=False)
+    window._elevation_mesh_actor = window.visualizer.add_mesh(
+        mesh_polydata,
         scalars='Z Elevation',
+        name='elevation_mesh',
         cmap='viridis',
         clim=(reference_z, z_bound_max),
         reset_camera=False,

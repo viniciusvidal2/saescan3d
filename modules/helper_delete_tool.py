@@ -91,8 +91,9 @@ def enable_box_selection_for_deletion(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The main window of the application.
     """
-    window._original_mesh = window.mesh_actor.copy()
-    window._current_mesh = window.mesh_actor.copy()
+    mesh_polydata = window.mesh_actor.GetMapper().GetInputAsDataSet()
+    window._original_mesh = mesh_polydata.copy()
+    window._current_mesh = mesh_polydata.copy()
     window._box_bounds = list(window._current_mesh.bounds)
     # Callback for box widget
     def box_callback(bounds):

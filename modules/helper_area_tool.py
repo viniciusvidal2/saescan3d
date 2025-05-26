@@ -35,7 +35,8 @@ def draw_polygon_and_compute_area(window: QMainWindow) -> None:
     # Make a surface and mask original mesh using polygon
     surf = polygon.delaunay_2d()
     surf.clean(inplace=True)
-    extracted = window.mesh_actor.extract_surface().select_enclosed_points(surf, check_surface=False)
+    mesh_polydata = pv.wrap(window.mesh_actor.GetMapper().GetInput())
+    extracted = mesh_polydata.extract_surface().select_enclosed_points(surf, check_surface=False)
     inside = extracted.threshold(0.5, scalars="SelectedPoints")
     # Try to calculate area
     if inside.n_cells > 0:
@@ -76,8 +77,9 @@ def enable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
     def right_click_callback(point: np.ndarray, picker: object) -> None:
         if point is None or not isinstance(point, np.ndarray):
             return
-        point_id = window.mesh_actor.find_closest_point(point)
-        selected_point = window.mesh_actor.points[point_id]
+        mesh_polydata = pv.wrap(window.mesh_actor.GetMapper().GetInput())
+        point_id = mesh_polydata.find_closest_point(point)
+        selected_point = mesh_polydata.points[point_id]
         add_area_marker(window, selected_point)
     # Define the callback for key presses
     def key_press_callback(interactor: object, event: object) -> None:
