@@ -41,7 +41,13 @@ def draw_polygon_and_compute_area(window: QMainWindow) -> None:
     # Try to calculate area
     if inside.n_cells > 0:
         area = inside.area
-        window.log_output(f"Polygon area: {area:.3f} meters²")
+        window.visualizer.add_text(
+            f"Area: {area:.2f} square meters",
+            position='upper_left',
+            color='black',
+            name="area_text"
+        )
+        window.log_output(f"Polygon AREA: {area:.3f} square meters")
         # Add extracted surface
         window._area_surface_actor = window.visualizer.add_mesh(inside, color='orange', opacity=0.9, reset_camera=False)
         window.visualizer.render()
@@ -72,6 +78,8 @@ def enable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The window with the visualizer to draw to
     """
+    # Get a backup of the original mesh actor polydata
+    window._mesh_actor_polydata_backup = window.mesh_actor.GetMapper().GetInput().copy()
     window.polygon_points = []
     # Define the callback for right-clicking on the mesh
     def right_click_callback(point: np.ndarray, picker: object) -> None:
@@ -108,6 +116,8 @@ def disable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The window with the visualizer to draw to
     """
+    # Clear the entire scene
+    window.visualizer.clear()
     # Disable point picking and remove observers
     window.visualizer.disable_picking()
     if hasattr(window, '_area_iren') and hasattr(window, '_area_key_observer_tag'):
@@ -116,3 +126,9 @@ def disable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
         del window._area_key_observer_tag
     # Clear polygon points and area surface
     clear_polygon_selection(window)
+    # Re-add the original mesh to the visualizer
+    if hasattr(window, '_mesh_actor_polydata_backup'):
+        window.mesh_actor = window.visualizer.add_mesh(
+            window._mesh_actor_polydata_backup, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
+        )
+        del window._mesh_actor_polydata_backup

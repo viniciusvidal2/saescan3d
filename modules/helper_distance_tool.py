@@ -28,7 +28,13 @@ def connect_and_print_distance(window: QMainWindow) -> None:
     window.line_actor = window.visualizer.add_mesh(line, color='red', line_width=4, reset_camera=False)
     # Calculate the distance between the two points
     distance = np.linalg.norm(np.array(p1) - np.array(p2))
-    window.log_output(f"Distance: {distance:.3f}")
+    window.visualizer.add_text(
+        f"Distance: {distance:.2f} meters",
+        position='upper_left',
+        color='black',
+        name="distance_text"
+    )
+    window.log_output(f"DISTANCE: {distance:.3f} meters")
 
 
 def clear_all_points(window: QMainWindow) -> None:
@@ -50,6 +56,8 @@ def clear_all_points(window: QMainWindow) -> None:
 def enable_point_selection_for_distance_measurement(window: QMainWindow) -> None:
     """Enable point selection for distance measurement.
     """
+    # Get a backup of the original mesh actor polydata
+    window._mesh_actor_polydata_backup = window.mesh_actor.GetMapper().GetInput().copy()
     window.selected_points = []  # store (point, actor) tuples
     window.line_actor = None
     # Define the callback for right-clicking on the mesh
@@ -102,6 +110,8 @@ def disable_point_selection_for_distance_measurement(window: QMainWindow) -> Non
     Args:
         window (QMainWindow): The main window instance.
     """
+    # Clear the entire scene
+    window.visualizer.clear()
     # Disable point picking and remove observers
     window.visualizer.disable_picking()
     if hasattr(window, '_iren') and hasattr(window, '_key_observer_tag'):
@@ -110,3 +120,9 @@ def disable_point_selection_for_distance_measurement(window: QMainWindow) -> Non
         del window._key_observer_tag
     if hasattr(window, 'selected_points') or hasattr(window, 'line_actor'):
         clear_all_points(window)
+    # Re-add the original mesh to the visualizer
+    if hasattr(window, '_mesh_actor_polydata_backup'):
+        window.mesh_actor = window.visualizer.add_mesh(
+            window._mesh_actor_polydata_backup, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
+        )
+        del window._mesh_actor_polydata_backup

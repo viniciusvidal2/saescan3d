@@ -197,9 +197,9 @@ def main() -> None:
 
     # After some seconds, close splash and open main window
     window = MainWindow()
-    QTimer.singleShot(1000, timer.stop)
-    QTimer.singleShot(1000, splash.close)
-    QTimer.singleShot(1000, window.show)
+    QTimer.singleShot(3000, timer.stop)
+    QTimer.singleShot(3000, splash.close)
+    QTimer.singleShot(3000, window.show)
     exit(app.exec())
 
 
