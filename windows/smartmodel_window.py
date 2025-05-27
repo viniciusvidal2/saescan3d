@@ -10,6 +10,7 @@ from pyvistaqt import QtInteractor
 from sys import exit
 import os
 import pyvista as pv
+import numpy as np
 import shutil
 from modules.tools import get_file_placement_path, read_pyvista_cloud
 from modules.helper_distance_tool import (
@@ -248,8 +249,7 @@ class SmartmodelWindow(QMainWindow):
                 ptc_polydata = read_pyvista_cloud(self.ply_file_path)
                 self.ptc_actor = self.visualizer.add_mesh(ptc_polydata, name="ptc_actor", 
                                                           scalars=ptc_polydata.point_data["RGB"], rgb=True)
-                self.visualizer.reset_camera()
-                self.visualizer.render()
+                self.prepare_actors_for_visualization()
             elif file_path.endswith(".obj"):
                 self.mesh_ptc_btn.setVisible(False)
                 self.mesh_ptc_btn.setEnabled(False)
@@ -285,8 +285,7 @@ class SmartmodelWindow(QMainWindow):
         """
         self.mesh_texture = mesh_texture
         self.mesh_actor = self.visualizer.add_mesh(mesh_actor, name="mesh_actor", texture=self.mesh_texture)
-        self.visualizer.reset_camera()
-        self.visualizer.render()
+        self.prepare_actors_for_visualization()
         self.log_output("Mesh loaded successfully.")
         self.enable_buttons()
                     
@@ -445,6 +444,24 @@ class SmartmodelWindow(QMainWindow):
             self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationOFF.ico")))
             disable_elevation_tool(self)
             self.enable_buttons()
+
+    def prepare_actors_for_visualization(self) -> None:
+        """Prepare the actors for visualization by shifting to the center of the scene, avoiding UTM coordinates.
+        """
+        if self.mesh_actor is None:
+            self.log_output("No mesh actor found. Please load a mesh first.")
+            return
+        # Get the center of the scene
+        if not hasattr(self, 'scene_center'):
+            self.scene_center = self.mesh_actor.GetMapper().GetInput().center
+        # Shift the actors to the center
+        for actor in list(self.visualizer.actors.values()):
+            mesh_polydata = actor.GetMapper().GetInput()
+            if np.linalg.norm(mesh_polydata.center) < 1e3:
+                continue
+            mesh_polydata.points -= self.scene_center
+        self.visualizer.reset_camera()
+        self.visualizer.render()
 
     # endregion
     # region Logging
