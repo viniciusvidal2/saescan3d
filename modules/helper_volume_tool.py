@@ -11,26 +11,24 @@ def perform_volume_clipping(window: QMainWindow) -> None:
     """
     # Clip the mesh in every direction but the Z-max one
     clipped_mesh = pv.wrap(window.mesh_actor.GetMapper().GetInput()).copy()
-    print(clipped_mesh)
     for name, plane in window._volume_box_planes.items():
-        print(f"Clipping mesh with plane: {name}")
-        print(f"Plane origin: {plane['origin']}, normal: {plane['normal']}")
         if name == "Z-max":
             continue
-        clipped_mesh = clipped_mesh.clip(normal=plane["normal"], origin=plane["origin"])
-        print(f"Clipped mesh points count: {clipped_mesh.n_points}")
-    print(f"Final clipped mesh points count: {clipped_mesh}")
+        clipped_mesh = clipped_mesh.clip(normal=-plane["normal"], origin=plane["origin"])
     if clipped_mesh.n_points == 0:
         window.log_output("No points in the clipped mesh. Exiting volume calculation.")
         return
     # Extrude the clipped mesh using the Z-min plane
     extrude_plane, extrude_direction = get_plane_params(plane=window._volume_box_planes["Z-min"])
     extruded_mesh = clipped_mesh.extrude_trim(direction=extrude_direction, trim_surface=extrude_plane, extrusion="boundary_edges")
-    if not extruded_mesh.is_manifold:
-        window.log_output("Selected mesh is not manifold. Exiting volume calculation.")
-        return
-    # Get the extruded mesh volume
-    window.log_output(f"VOLUME of the extruded mesh: {extruded_mesh.volume:.3f} cubic meters.")
+    # Get the extruded mesh volume and add to the visualizer
+    window.log_output(f"VOLUME of the extruded mesh: {extruded_mesh.volume:.2f} cubic meters.")
+    window.visualizer.add_text(
+        f"Volume: {extruded_mesh.volume:.2f} cubic meters",
+        position='upper_left',
+        color='black',
+        name="volume_text"
+    )
     # Add the clipped and extruded meshes to the visualizer
     window.clipped_mesh_actor = window.visualizer.add_mesh(
         clipped_mesh, color='blue', opacity=0.8, name="clipped_mesh_actor", reset_camera=False
