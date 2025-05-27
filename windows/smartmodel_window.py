@@ -24,6 +24,9 @@ from modules.helper_elevation_tool import (
 from modules.helper_delete_tool import (
     enable_box_selection_for_deletion, disable_box_selection_for_deletion
 )
+from modules.helper_volume_tool import (
+    enable_volume_calculation, disable_volume_calculation
+)
 from modules.worker_obj import WorkerObj
 
 
@@ -399,7 +402,19 @@ class SmartmodelWindow(QMainWindow):
             self.enable_buttons()
 
     def volume_tool_btn_callback(self) -> None:
-        pass
+        """Callback for the volume tool button.
+        """
+        self.log_output(self.log_splitter)
+        if self.volume_tool_btn.isChecked():
+            self.log_output("Volume tool activated.")
+            self.volume_tool_btn.setIcon(QIcon(get_file_placement_path("resources/volumeON.ico")))
+            self.disable_other_tools(self.volume_tool_btn)
+            enable_volume_calculation(self)
+        else:
+            self.log_output("Volume tool deactivated.")
+            self.volume_tool_btn.setIcon(QIcon(get_file_placement_path("resources/volumeOFF.ico")))
+            disable_volume_calculation(self)
+            self.enable_buttons()
 
     def delete_tool_btn_callback(self) -> None:
         """Callback for the delete tool button.

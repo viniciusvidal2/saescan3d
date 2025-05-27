@@ -96,7 +96,12 @@ def enable_box_selection_for_deletion(window: QMainWindow) -> None:
     window._current_mesh = mesh_polydata.copy()
     window._box_bounds = list(window._current_mesh.bounds)
     # Callback for box widget
-    def box_callback(bounds):
+    def box_callback(bounds: Union[dict, list, tuple]) -> None:
+        """Callback function for the box widget to update bounds.
+
+        Args:
+            bounds (Union[dict, list, tuple]): The bounds of the box widget.
+        """
         window._box_bounds = get_box_bounds(bounds)
     # Create box widget
     window._box_widget = window.visualizer.add_box_widget(
@@ -107,7 +112,13 @@ def enable_box_selection_for_deletion(window: QMainWindow) -> None:
         color='red'
     )
     # Key press handler
-    def key_press_callback(interactor, event):
+    def key_press_callback(interactor, event: object) -> None:
+        """Callback function for key press events during box selection.
+
+        Args:
+            interactor: The interactor instance.
+            event (object): The key press event.
+        """
         key = interactor.GetKeySym()
         if key == 'Return':
             delete_inside_box(window)
