@@ -72,6 +72,8 @@ class Saescan3dWindow(QMainWindow):
         self.ptc_actor = None
         self.mesh_actor = None
         self.mesh_texture = None
+        # Number of images to process, to see if we can run the SFM
+        self.num_images = 0
         
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -215,7 +217,12 @@ class Saescan3dWindow(QMainWindow):
             # List images in natural order in the folder and log them
             images = sorted([f for f in os.listdir(folder) if f.endswith(('.jpg', '.png', '.jpeg', '.JPG', '.PNG', '.JPEG'))],
                             key=lambda x: int(''.join(filter(str.isdigit, x))))
-            self.log_output(f"Images found in the folder: {len(images)}")
+            self.num_images = len(images)
+            self.log_output(f"Images found in the folder: {self.num_images}")
+            if self.num_images == 0:
+                self.log_output("No images found in the selected folder.")
+                self.enable_buttons()
+                return
             for img in images:
                 self.log_output(f" - {os.path.basename(img)}")
             # Set the input folder in the worker
@@ -254,6 +261,9 @@ class Saescan3dWindow(QMainWindow):
         # Check if the input folder is set
         if not self.images_text_edit.text() or not self.sfm_output_text_edit.text():
             self.log_output("Input images folder or project folder not set.")
+            return
+        if self.num_images < 2:
+            self.log_output("Not enough images to run the SfM process. At least 2 images are required.")
             return
         self.disable_buttons()
         # Set the input and output folders in the worker
