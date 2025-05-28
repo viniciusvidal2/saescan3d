@@ -21,19 +21,6 @@ def get_box_bounds(bounds: Union[dict, list, tuple]) -> list:
         raise ValueError(f"Unexpected bounds format: {bounds}")
 
 
-def safe_remove_actor(window: QMainWindow, actor_name: str) -> None:
-    """Safely remove an actor from the visualizer.
-
-    Args:
-        window (QMainWindow): The main window of the application.
-        actor_name (str): The name of the actor to remove.
-    """
-    for actor in list(window.visualizer.actors.values()):
-        if actor.name == actor_name:
-            window.visualizer.remove_actor(actor, reset_camera=False)
-            break
-
-
 def delete_inside_box(window: QMainWindow) -> None:
     """Deletes the mesh region inside the box.
     
@@ -53,15 +40,27 @@ def delete_inside_box(window: QMainWindow) -> None:
         (pts[:, 2] < zmin) | (pts[:, 2] > zmax)
     )
     remaining = window._current_mesh.extract_points(mask, adjacent_cells=True)
-    if remaining.n_points == 0:
-        window.log_output("All points were deleted. Nothing left.")
-        return
     window._current_mesh = remaining
     # Update visualization
-    safe_remove_actor(window=window, actor_name="mesh_actor")
-    window.mesh_actor = window.visualizer.add_mesh(
-        window._current_mesh, texture=window.mesh_texture, name="mesh_actor"
-    )
+    if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
+        window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
+        if window._current_mesh.n_points > 0:
+            window.mesh_actor = window.visualizer.add_mesh(
+                window._current_mesh, name="mesh_actor", 
+                scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
+            )
+        else:
+            window.mesh_actor = None
+            window.log_output("No points left after deletion.")
+    else:
+        window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
+        if window._current_mesh.n_points > 0:
+            window.mesh_actor = window.visualizer.add_mesh(
+                window._current_mesh, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
+            )
+        else:
+            window.mesh_actor = None
+            window.log_output("No points left after deletion.")
     window.visualizer.render()
     window.log_output("Deleted region inside the box.")
 
@@ -77,10 +76,15 @@ def reset_mesh(window: QMainWindow) -> None:
         return
     # Restore the original mesh
     window._current_mesh = window._original_mesh.copy()
-    safe_remove_actor(window=window, actor_name="mesh_actor")
-    window.mesh_actor = window.visualizer.add_mesh(
-        window._current_mesh, texture=window.mesh_texture, name="mesh_actor"
-    )
+    if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
+        window.mesh_actor = window.visualizer.add_mesh(
+            window._current_mesh, name="mesh_actor", 
+            scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
+        )
+    else:
+        window.mesh_actor = window.visualizer.add_mesh(
+            window._current_mesh, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
+        )
     window.visualizer.render()
     window.log_output("Mesh has been reset to its original state.")
 
@@ -91,7 +95,7 @@ def enable_box_selection_for_deletion(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The main window of the application.
     """
-    mesh_polydata = window.mesh_actor.GetMapper().GetInputAsDataSet()
+    mesh_polydata = window.mesh_actor.GetMapper().GetInput().copy()
     window._original_mesh = mesh_polydata.copy()
     window._current_mesh = mesh_polydata.copy()
     window._box_bounds = list(window._current_mesh.bounds)
@@ -108,7 +112,7 @@ def enable_box_selection_for_deletion(window: QMainWindow) -> None:
         callback=box_callback,
         bounds=window._current_mesh.bounds,
         use_planes=False,
-        rotation_enabled=True,
+        rotation_enabled=False,
         color='red'
     )
     # Key press handler
@@ -148,9 +152,15 @@ def disable_box_selection_for_deletion(window: QMainWindow) -> None:
         del window._delete_iren
         del window._delete_key_observer_tag
     # Re-add mesh
-    window.mesh_actor = window.visualizer.add_mesh(
-        window._current_mesh, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
-    )
+    if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
+        window.mesh_actor = window.visualizer.add_mesh(
+            window._current_mesh, name="mesh_actor", 
+            scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
+        )
+    else:
+        window.mesh_actor = window.visualizer.add_mesh(
+            window._current_mesh, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
+        )
     if hasattr(window, '_original_mesh'):
         del window._original_mesh
     if hasattr(window, '_current_mesh'):

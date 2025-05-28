@@ -99,6 +99,8 @@ class SmartmodelWindow(QMainWindow):
         self.mesh_actor = None
         self.mesh_texture = None
         self.ptc_actor = None
+        # Flag to control the level of what is loaded in the project
+        self.project_mesh_level = None  # ["ptc", "mesh", "texture"]
         
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -247,9 +249,12 @@ class SmartmodelWindow(QMainWindow):
                 self.mesh_ptc_btn.setEnabled(True)
                 self.ply_file_path = file_path
                 ptc_polydata = read_pyvista_cloud(self.ply_file_path)
-                self.ptc_actor = self.visualizer.add_mesh(ptc_polydata, name="ptc_actor", 
+                self.mesh_actor = self.visualizer.add_mesh(ptc_polydata, name="mesh_actor", 
                                                           scalars=ptc_polydata.point_data["RGB"], rgb=True)
                 self.prepare_actors_for_visualization()
+                # Call enable buttons, but only for tools that should not work and need a mesh
+                self.project_mesh_level = "ptc"
+                self.enable_buttons()
             elif file_path.endswith(".obj"):
                 self.mesh_ptc_btn.setVisible(False)
                 self.mesh_ptc_btn.setEnabled(False)
@@ -287,6 +292,7 @@ class SmartmodelWindow(QMainWindow):
         self.mesh_actor = self.visualizer.add_mesh(mesh_actor, name="mesh_actor", texture=self.mesh_texture)
         self.prepare_actors_for_visualization()
         self.log_output("Mesh loaded successfully.")
+        self.project_mesh_level = "texture"
         self.enable_buttons()
                     
     def mesh_ptc_btn_callback(self) -> None:
@@ -295,13 +301,14 @@ class SmartmodelWindow(QMainWindow):
         self.log_output(self.log_splitter)
         self.log_output("Processing the point cloud to create a mesh...")
         # Apply a Delaunay triangulation to the point cloud
-        ptc_polydata = self.ptc_actor.GetMapper().GetInput()
+        ptc_polydata = self.mesh_actor.GetMapper().GetInput()
         mesh_polydata = ptc_polydata.delaunay_2d()
         # Update the mesh in the visualizer
-        self.visualizer.remove_actor("ptc_actor")
         self.mesh_actor = self.visualizer.add_mesh(mesh_polydata, name="mesh_actor", 
                                                    scalars=mesh_polydata.point_data["RGB"], rgb=True, reset_camera=False)
         self.log_output("Mesh created successfully.")
+        # Update project flag
+        self.project_mesh_level = "mesh"
         self.enable_buttons()
 
     def disable_other_tools(self, btn) -> None:
@@ -494,8 +501,9 @@ class SmartmodelWindow(QMainWindow):
         if self.mesh_ptc_btn.isVisible():
             self.mesh_ptc_btn.setEnabled(True)
         self.distance_tool_btn.setEnabled(True)
-        self.area_tool_btn.setEnabled(True)
-        self.volume_tool_btn.setEnabled(True)
+        if self.project_mesh_level == "mesh" or self.project_mesh_level == "texture":
+            self.area_tool_btn.setEnabled(True)
+            self.volume_tool_btn.setEnabled(True)
         self.delete_tool_btn.setEnabled(True)
         self.elevation_tool_btn.setEnabled(True)
         self.input_file_text_edit.setEnabled(True)

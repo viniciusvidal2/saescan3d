@@ -138,7 +138,7 @@ def enable_volume_calculation(window: QMainWindow) -> None:
         callback=callback,
         bounds=pv.wrap(window.mesh_actor.GetMapper().GetInput()).bounds,
         rotation_enabled=True,
-        color='red'
+        color='black'
     )
     # Key press handler callback for volume calculation
     def key_press_callback(interactor, event: object) -> None:

@@ -15,7 +15,7 @@ def apply_elevation_colormap(window: QMainWindow, reference_z: float) -> None:
     if reference_z > z_bound_max:
         reference_z = z_bound_max - 0.1
     # Get the Z elevation data
-    mesh_polydata = window._mesh_actor_backup.GetMapper().GetInput()
+    mesh_polydata = window._main_actor_polydata_backup.copy()
     mesh_polydata.point_data['Z Elevation'] = mesh_polydata.points[:, 2].copy()
     # Remove any previous scalar bar
     try:
@@ -45,7 +45,6 @@ def apply_elevation_colormap(window: QMainWindow, reference_z: float) -> None:
             "position_y": 0.05,
         },
     )
-    window.visualizer.render()
 
 
 def enable_elevation_tool(window: QMainWindow) -> None:
@@ -54,15 +53,14 @@ def enable_elevation_tool(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The main window of the application.
     """
-    # Get the bounds of the mesh actor
-    mesh_polydata = window.mesh_actor.GetMapper().GetInput()
-    bounds = mesh_polydata.bounds
+    # Backup the original main actor and prepare view
+    window._main_actor_polydata_backup = window.mesh_actor.GetMapper().GetInput().copy()
+    window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
+    # Get the bounds of the mesh actor polydata
+    bounds = window._main_actor_polydata_backup.bounds
     z_min, z_max = bounds[4], bounds[5]
     z_center = (z_min + z_max) / 2
     window._elevation_bounds = (z_min, z_max)
-    # Backup the original actor
-    window._mesh_actor_backup = window.mesh_actor.copy()
-    window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
     # Apply initial colormap and show scalar bar
     apply_elevation_colormap(window=window, reference_z=z_center)
     # Add draggable plane widget
@@ -96,14 +94,17 @@ def disable_elevation_tool(window: QMainWindow) -> None:
         window.visualizer.remove_actor(window._elevation_mesh_actor, reset_camera=False)
         del window._elevation_mesh_actor
     # Restore the original mesh actor
-    if hasattr(window, "_mesh_actor_backup"):
-        mesh_polydata = window._mesh_actor_backup.GetMapper().GetInput()
-        window.mesh_actor = window.visualizer.add_mesh(mesh_polydata, name="mesh_actor", 
-                                                       texture=window.mesh_texture, reset_camera=False)
-        del window._mesh_actor_backup
+    if hasattr(window, "_main_actor_polydata_backup"):
+        if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
+            window.mesh_actor = window.visualizer.add_mesh(window._main_actor_polydata_backup, name="mesh_actor", 
+                                                          scalars=window._main_actor_polydata_backup.point_data["RGB"], 
+                                                          rgb=True, reset_camera=False)
+        else:
+            window.mesh_actor = window.visualizer.add_mesh(window._main_actor_polydata_backup, name="mesh_actor", 
+                                                           texture=window.mesh_texture, reset_camera=False)
+        del window._main_actor_polydata_backup
     # Remove the scalar bar
     try:
         window.visualizer.remove_scalar_bar()
     except Exception:
         pass
-    window.visualizer.render()

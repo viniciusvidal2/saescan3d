@@ -57,8 +57,9 @@ def enable_point_selection_for_distance_measurement(window: QMainWindow) -> None
     """Enable point selection for distance measurement.
     """
     # Get a backup of the original mesh actor polydata
-    window._mesh_actor_polydata_backup = window.mesh_actor.GetMapper().GetInput().copy()
-    window.selected_points = []  # store (point, actor) tuples
+    window._main_actor_polydata_backup = window.mesh_actor.GetMapper().GetInput().copy()
+    # Selection data
+    window.selected_points = []
     window.line_actor = None
     # Define the callback for right-clicking on the mesh
     def right_click_callback(point: np.ndarray, picker: object) -> None:
@@ -71,10 +72,9 @@ def enable_point_selection_for_distance_measurement(window: QMainWindow) -> None
         # Get the closest point index from the mesh
         if point is None or not isinstance(point, np.ndarray):
             return
-        mesh_polydata = window.mesh_actor.GetMapper().GetInputAsDataSet()
-        point_id = mesh_polydata.find_closest_point(point)
+        point_id = window._main_actor_polydata_backup.find_closest_point(point)
         # Create a sphere at the selected point
-        selected_point = mesh_polydata.points[point_id]
+        selected_point = window._main_actor_polydata_backup.points[point_id]
         add_sphere(window, selected_point)
         if len(window.selected_points) == 2:
             connect_and_print_distance(window)
@@ -121,8 +121,14 @@ def disable_point_selection_for_distance_measurement(window: QMainWindow) -> Non
     if hasattr(window, 'selected_points') or hasattr(window, 'line_actor'):
         clear_all_points(window)
     # Re-add the original mesh to the visualizer
-    if hasattr(window, '_mesh_actor_polydata_backup'):
-        window.mesh_actor = window.visualizer.add_mesh(
-            window._mesh_actor_polydata_backup, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
-        )
-        del window._mesh_actor_polydata_backup
+    if hasattr(window, '_main_actor_polydata_backup'):
+        if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
+            window.mesh_actor = window.visualizer.add_mesh(
+                window._main_actor_polydata_backup, name="mesh_actor", 
+                scalars=window._main_actor_polydata_backup.point_data["RGB"], rgb=True, reset_camera=False
+            )
+        else:
+            window.mesh_actor = window.visualizer.add_mesh(
+                window._main_actor_polydata_backup, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
+            )
+        del window._main_actor_polydata_backup
