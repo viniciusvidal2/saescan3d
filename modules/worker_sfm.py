@@ -29,7 +29,12 @@ class WorkerSfm(QObject):
         self.output_folder = None
         self.input_folder = None
         self.project_file_path = None
+        # Meshroom sets
         self.meshroom_batch_path = get_file_placement_path("dependencies/meshroom/meshroom_batch")
+        self.meshroom_color_ptc_export_path = get_file_placement_path("dependencies/meshroom/aliceVision/bin/aliceVision_exportColoredPointCloud.exe")
+        self.meshroom_sfm_convert_path = get_file_placement_path("dependencies/meshroom/aliceVision/bin/aliceVision_convertSfMFormat.exe")
+        self.meshroom_env = os.environ.copy()
+        self.meshroom_env["ALICEVISION_ROOT"] = get_file_placement_path("dependencies/meshroom/aliceVision")
         # Pipelines
         self.pipelines = {"mesh": None,
                           "full": "photogrammetry"}
@@ -149,6 +154,25 @@ class WorkerSfm(QObject):
     
     # endregion
     # region Methods
+     
+    def check_gpu_available(self) -> bool:
+        """Check if NVIDIA GPU is available for Meshroom processing.
+        
+        Returns:
+            bool: True if an NVIDIA GPU is available, False otherwise.
+        """
+        try:
+            import GPUtil
+            gpus = GPUtil.getGPUs()
+            if gpus:
+                self.log.emit(f"Found {len(gpus)} NVIDIA GPU(s): {gpus[0].name}")
+                return True
+            else:
+                self.log.emit("No NVIDIA GPUs detected, using CPU instead.")
+                return False
+        except Exception as e:
+            self.log.emit(f"Error checking GPU: {e}")
+            return False
 
     def create_project_file(self, pipeline: str) -> bool:
         """Create a project file for the SFM worker.
@@ -180,9 +204,10 @@ class WorkerSfm(QObject):
         except subprocess.CalledProcessError as e:
             self.log.emit(f"Error creating project file: {e}")
             return False
-        # Read the project content as JSON and change the output texture format to PNG
+        # Read the project content as JSON to apply the necessary changes
         with open(self.project_file_path, "r") as project_file:
             project_content = json.load(project_file)
+            # Change the texture files to have PNG format
             project_content["graph"]["Texturing_1"]["inputs"]["colorMapping"]["colorMappingFileType"] = "png"
             project_content["graph"]["Texturing_1"]["outputs"]["outputTextures"] = \
                 project_content["graph"]["Texturing_1"]["outputs"]["outputTextures"].replace(".exr", ".png")
@@ -193,35 +218,39 @@ class WorkerSfm(QObject):
             project_file.close()
         return True
     
-    def organize_output_folder(self) -> None:
+    def organize_output_folder(self, use_gpu: bool) -> None:
         """Organize the output folder by maintaining only the interesting results.
+
+        Args:
+            use_gpu (bool): Whether the pipeline was run on GPU or CPU.
         """
         if not self.output_folder:
             self.log.emit("Output folder is not set.")
             return
-        # Move texture obj to the output folder
-        output_texture_folder = os.path.join(self.output_folder, "Texturing")
-        os.makedirs(output_texture_folder, exist_ok=True)
-        texture_folder = os.path.join(self.cache_folder, "Texturing")
-        texture_hash_folder = os.path.join(texture_folder, os.listdir(texture_folder)[0])
-        shutil.copy2(os.path.join(texture_hash_folder, "texturedMesh.obj"),
-                      os.path.join(output_texture_folder, "texturedMesh.obj"))
-        # Move the MTL and PNG files to the output folder
-        shutil.copy2(os.path.join(texture_hash_folder, "texturedMesh.mtl"),
-                     os.path.join(output_texture_folder, "texturedMesh.mtl"))
-        for file in os.listdir(texture_hash_folder):
-            if file.endswith(".png"):
-                shutil.copy2(os.path.join(texture_hash_folder, file),
-                             os.path.join(output_texture_folder, file))
+        if use_gpu:
+            # Move texture obj to the output folder
+            output_texture_folder = os.path.join(self.output_folder, "Texturing")
+            os.makedirs(output_texture_folder, exist_ok=True)
+            texture_folder = os.path.join(self.cache_folder, "Texturing")
+            texture_hash_folder = os.path.join(texture_folder, os.listdir(texture_folder)[0])
+            shutil.copy2(os.path.join(texture_hash_folder, "texturedMesh.obj"),
+                        os.path.join(output_texture_folder, "texturedMesh.obj"))
+            # Move the MTL and PNG files to the output folder
+            shutil.copy2(os.path.join(texture_hash_folder, "texturedMesh.mtl"),
+                        os.path.join(output_texture_folder, "texturedMesh.mtl"))
+            for file in os.listdir(texture_hash_folder):
+                if file.endswith(".png"):
+                    shutil.copy2(os.path.join(texture_hash_folder, file),
+                                os.path.join(output_texture_folder, file))
+            # Create a the point cloud, which we generate from the obj texture file, and save
+            ptc = convert_obj_to_ply(obj_path=os.path.join(output_texture_folder, "texturedMesh.obj"))
+            ptc_path = os.path.join(self.output_folder, "pointCloud.ply")
+            o3d.io.write_point_cloud(ptc_path, ptc)
         # Move the cameras to the output folder
         sfm_folder = os.path.join(self.cache_folder, "StructureFromMotion")
         sfm_hash_folder = os.path.join(sfm_folder, os.listdir(sfm_folder)[0])
         shutil.copy2(os.path.join(sfm_hash_folder, "cameras.sfm"),
-                     os.path.join(self.output_folder, "cameras.sfm"))
-        # Create a the point cloud, which we generate from the obj texture file, and save
-        ptc = convert_obj_to_ply(obj_path=os.path.join(output_texture_folder, "texturedMesh.obj"))
-        ptc_path = os.path.join(self.output_folder, "pointCloud.ply")
-        o3d.io.write_point_cloud(ptc_path, ptc)
+                     os.path.join(self.output_folder, "cameras.sfm"))       
         # Remove the cache folder
         shutil.rmtree(self.cache_folder)
 
@@ -256,6 +285,50 @@ class WorkerSfm(QObject):
             self.cameras[key] = pyramid
         return True
 
+    def convert_abc_ply(self) -> bool:
+        """Convert the sparse point cloud from abc to ply format.
+
+        Returns:
+            bool: Whether the conversion was successful or not.
+        """
+        sfm_folder = os.path.join(self.cache_folder, "StructureFromMotion")
+        sfm_hash_folder = os.path.join(sfm_folder, os.listdir(sfm_folder)[0])
+        input_ptc_path = os.path.join(sfm_hash_folder, "cloud_and_poses.abc")
+        exported_ptc_path = os.path.join(sfm_hash_folder, "pointCloud.abc")
+        if not os.path.exists(input_ptc_path):
+            self.log.emit("Sparse point cloud not found in the output folder.")
+            return False
+        # Export the sparse point cloud from the ptc + cameras sfm file
+        command = [self.meshroom_color_ptc_export_path,
+                   "--input", input_ptc_path,
+                   "--output", exported_ptc_path]
+        try:
+            subprocess.run(command, check=True, env=self.meshroom_env,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                           creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+        except subprocess.CalledProcessError as e:
+            self.log.emit(f"Error exporting point cloud from SFM result: {e}")
+            return False
+        # Convert the sparse point cloud from abc to ply format
+        command = [self.meshroom_sfm_convert_path, 
+                   "--input", exported_ptc_path, 
+                   "--output", os.path.join(self.output_folder, "pointCloud.ply"),
+                   "--describerTypes", "sift,sift_float,sift_upright,dspsift,akaze,akaze_liop,akaze_mldb",
+                   "--intrinsics", "0",
+                   "--extrinsics", "0",
+                   "--observations", "0",
+                   "--views", "0",
+                   "--structure", "1",
+                   "--verboseLevel", "error"]
+        try:
+            subprocess.run(command, check=True, env=self.meshroom_env,
+                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                           creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+        except subprocess.CalledProcessError as e:
+            self.log.emit(f"Error converting sparse point cloud: {e}")
+            return False
+        return True
+    
     # endregion
     # region Slots
 
@@ -273,14 +346,26 @@ class WorkerSfm(QObject):
             self.finished.emit()
             return
         self.log.emit(f"Project file created at {self.project_file_path}.")
-        # Run the desired pipeline
-        try:
+        # Setting the command according to the pipeline and GPU availability
+        gpu_available = self.check_gpu_available()
+        if gpu_available:
+            self.log.emit("We will generate dense point cloud and textured mesh from running on GPU.")
             command = [self.meshroom_batch_path, 
                     "--input", self.input_folder,
                     "--cache", self.cache_folder,
                     "--pipeline", self.project_file_path,
                     "--toNode", "Texturing_1",
                     "--forceCompute", "--forceStatus"]
+        else:
+            self.log.emit("We will generate the sparse point cloud from running on CPU.")
+            command = [self.meshroom_batch_path,
+                    "--input", self.input_folder,
+                    "--cache", self.cache_folder,
+                    "--pipeline", self.project_file_path,
+                    "--toNode", "StructureFromMotion_1",
+                    "--forceCompute", "--forceStatus"]
+        # Run the desired pipeline
+        try:
             process = subprocess.Popen(
                 command,
                 stdout=subprocess.PIPE,
@@ -290,7 +375,7 @@ class WorkerSfm(QObject):
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
             )
             # Print the steps to the user in the GUI
-            pattern = re.compile(r"\[\d+/11\]")
+            pattern = re.compile(r"\[\d+/11\]") if gpu_available else re.compile(r"\[\d+/6\]")
             for line in process.stdout:
                 if "Nodes to execute" in line or pattern.search(line):
                     self.log.emit(line)
@@ -299,9 +384,17 @@ class WorkerSfm(QObject):
         except Exception as e:
             self.log.emit(f"Error running the pipeline: {e}")
             return False
+        # If no GPU, convert the sparse point cloud from cameras to ply format
+        if not gpu_available:
+            self.log.emit("Converting sparse point cloud to PLY format...")
+            if self.convert_abc_ply():
+                self.log.emit("Sparse point cloud converted to PLY format successfully.")
+            else:
+                self.log.emit("Failed to convert sparse point cloud to PLY format.")
+                return False
         # Organize output folder to have only the texture, ptc, and cameras
         self.log.emit("Organizing output folder...")
-        self.organize_output_folder()
+        self.organize_output_folder(use_gpu=gpu_available)
         self.log.emit("Output folder organized. Applying scale and frame transform...")
         # Apply the scale and frame transform to the point cloud and textured mesh
         scale, global_R_scaled, global_t_scaled = compute_transformation_from_sfm(
@@ -310,13 +403,14 @@ class WorkerSfm(QObject):
                                                   scale=scale,
                                                   rotation=global_R_scaled,
                                                   t=global_t_scaled)
-        transform_save_obj(
-            obj_path=os.path.join(self.output_folder, "Texturing", "texturedMesh.obj"),
-            mtl_path=os.path.join(self.output_folder, "Texturing", "texturedMesh.mtl"),
-            scale=scale,
-            rotation=global_R_scaled,
-            t=global_t_scaled
-        )
+        if gpu_available:
+            transform_save_obj(
+                obj_path=os.path.join(self.output_folder, "Texturing", "texturedMesh.obj"),
+                mtl_path=os.path.join(self.output_folder, "Texturing", "texturedMesh.mtl"),
+                scale=scale,
+                rotation=global_R_scaled,
+                t=global_t_scaled
+            )
         ptc_path = os.path.join(self.output_folder, "pointCloud.ply")
         transform_save_ptc(
             filename=ptc_path,
