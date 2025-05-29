@@ -13,48 +13,42 @@ def find_box_data(box_corners: np.ndarray) -> dict:
         dict: A dict containing the origin of the box and the axes as numpy arrays.
     """
     # Step 1: Find the corner with the smallest (x + y + z) as origin
-    sums = box_corners.sum(axis=1)
-    origin_idx = np.argmin(sums)
-    origin = box_corners[origin_idx]
-    # Step 2: Find 3 adjacent corners to define axes
-    diffs = box_corners - origin
-    dists = np.linalg.norm(diffs, axis=1)
-    non_zero = dists > 1e-6
-    adj_vectors = diffs[non_zero]
-    # Compute the three unique edge directions
-    # Find the 3 shortest non-zero vectors (the box edges)
-    edge_lengths = np.linalg.norm(adj_vectors, axis=1)
-    sorted_idx = np.argsort(edge_lengths)[:3]
-    axes = adj_vectors[sorted_idx]
+    origin = box_corners[0]
     # Normalize axes
-    x_axis = axes[0] / np.linalg.norm(axes[0])
-    y_axis = axes[1] / np.linalg.norm(axes[1])
-    z_axis = axes[2] / np.linalg.norm(axes[2])
-    # Compute box lengths along each axis
-    Lx = np.dot(axes[0], x_axis)
-    Ly = np.dot(axes[1], y_axis)
-    Lz = np.dot(axes[2], z_axis)
+    x_axis = box_corners[1] - origin
+    y_axis = box_corners[3] - origin
+    z_axis = box_corners[4] - origin
+    Lx = np.linalg.norm(x_axis)
+    Ly = np.linalg.norm(y_axis)
+    Lz = np.linalg.norm(z_axis)
+    x_axis = x_axis / Lx
+    y_axis = y_axis / Ly
+    z_axis = z_axis / Lz
     # Return the full data
     return {"o": origin, "x": x_axis, "y": y_axis, "z": z_axis,
             "Lx": Lx, "Ly": Ly, "Lz": Lz}
 
 
-def point_outside_box(point: np.ndarray, box_data: dict) -> bool:
+def point_outside_box(point: np.ndarray, box_data: dict, thresh_distance: float) -> bool:
     """Check if a point is outside the box defined by its corners.
 
     Args:
         point (np.ndarray): The query point in 3D space.
         box_data (dict): A dict containing the origin and axes of the box.
+        thresh_distance (float): The threshold distance to consider a point outside the box.
 
     Returns:
         bool: True if the point is inside the box, False otherwise.
     """
-    # Step 3: Transform point to box local coordinates
+    # If the point is too far from the box, it is considered outside
+    if np.linalg.norm(point - box_data["o"]) > thresh_distance:
+        return True
+    # Transform point to box local coordinates
     v = point - box_data["o"]
     cx = np.dot(v, box_data["x"])
     cy = np.dot(v, box_data["y"])
     cz = np.dot(v, box_data["z"])
-    # Step 4: Check if outside bounds
+    # Check if outside bounds
     if (0 <= cx <= box_data["Lx"]) and \
        (0 <= cy <= box_data["Ly"]) and \
        (0 <= cz <= box_data["Lz"]):
@@ -70,8 +64,9 @@ def delete_inside_box(window: QMainWindow) -> None:
     """
     # Find box origin, axis and projected lenghts
     box_data = find_box_data(box_corners=window._box_widget_corners)
+    max_box_distance = np.linalg.norm(window._box_widget_corners[0] - window._box_widget_corners[6])
     # For each point, check if it is outside the box and create mask
-    outside_box_mask = [point_outside_box(point=point, box_data=box_data)
+    outside_box_mask = [point_outside_box(point=point, box_data=box_data, thresh_distance=max_box_distance)
                         for point in window._current_mesh.points]
     # Obtain the points that are outside the box
     remaining = window._current_mesh.extract_points(outside_box_mask, adjacent_cells=True)
