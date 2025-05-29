@@ -97,9 +97,15 @@ def read_pyvista_cloud(ptc_path: str) -> pv.PolyData:
         # Read the point cloud and convert to pyvista
         point_cloud_o3d = o3d.io.read_point_cloud(ptc_path)
         point_cloud_polydata = pv.PolyData(np.asarray(point_cloud_o3d.points))
+        # Add colors if they exist, create RGB array if not present
         if point_cloud_o3d.has_colors():
             point_cloud_polydata.point_data["RGB"] = (
                 np.asarray(point_cloud_o3d.colors) * 255).astype(np.uint8)
+        else:
+            # Create a default RGB array if no colors are present
+            point_cloud_polydata.point_data["RGB"] = np.full(
+                (point_cloud_polydata.n_points, 3), 255, dtype=np.uint8)
+        # Add normals if they exist
         if point_cloud_o3d.has_normals():
             point_cloud_polydata.point_data["Normals"] = np.asarray(point_cloud_o3d.normals)
         return point_cloud_polydata
