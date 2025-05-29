@@ -1,25 +1,66 @@
 from PySide6.QtWidgets import QMainWindow
-from typing import Union
+import pyvista as pv
+import numpy as np
 
 
-def get_box_bounds(bounds: Union[dict, list, tuple]) -> list:
-    """Utility to parse bounds safely.
-    
+def find_box_data(box_corners: np.ndarray) -> dict:
+    """Find the box origin and axes from the corners of the box.
+
     Args:
-        bounds (Union[dict, list, tuple]): The bounds to parse.
+        box_corners (np.ndarray): The corners of the box in 3D space, shape (8, 3).
 
     Returns:
-        list: The parsed bounds.
+        dict: A dict containing the origin of the box and the axes as numpy arrays.
     """
-    if isinstance(bounds, dict) and 'bounds' in bounds:
-        return bounds['bounds']
-    elif hasattr(bounds, 'bounds'):
-        return bounds.bounds
-    elif isinstance(bounds, (list, tuple)) and len(bounds) == 6:
-        return bounds
-    else:
-        raise ValueError(f"Unexpected bounds format: {bounds}")
+    # Step 1: Find the corner with the smallest (x + y + z) as origin
+    sums = box_corners.sum(axis=1)
+    origin_idx = np.argmin(sums)
+    origin = box_corners[origin_idx]
+    # Step 2: Find 3 adjacent corners to define axes
+    diffs = box_corners - origin
+    dists = np.linalg.norm(diffs, axis=1)
+    non_zero = dists > 1e-6
+    adj_vectors = diffs[non_zero]
+    # Compute the three unique edge directions
+    # Find the 3 shortest non-zero vectors (the box edges)
+    edge_lengths = np.linalg.norm(adj_vectors, axis=1)
+    sorted_idx = np.argsort(edge_lengths)[:3]
+    axes = adj_vectors[sorted_idx]
+    # Normalize axes
+    x_axis = axes[0] / np.linalg.norm(axes[0])
+    y_axis = axes[1] / np.linalg.norm(axes[1])
+    z_axis = axes[2] / np.linalg.norm(axes[2])
+    # Compute box lengths along each axis
+    Lx = np.dot(axes[0], x_axis)
+    Ly = np.dot(axes[1], y_axis)
+    Lz = np.dot(axes[2], z_axis)
+    # Return the full data
+    return {"o": origin, "x": x_axis, "y": y_axis, "z": z_axis,
+            "Lx": Lx, "Ly": Ly, "Lz": Lz}
 
+
+def point_outside_box(point: np.ndarray, box_data: dict) -> bool:
+    """Check if a point is outside the box defined by its corners.
+
+    Args:
+        point (np.ndarray): The query point in 3D space.
+        box_data (dict): A dict containing the origin and axes of the box.
+
+    Returns:
+        bool: True if the point is inside the box, False otherwise.
+    """
+    # Step 3: Transform point to box local coordinates
+    v = point - box_data["o"]
+    cx = np.dot(v, box_data["x"])
+    cy = np.dot(v, box_data["y"])
+    cz = np.dot(v, box_data["z"])
+    # Step 4: Check if outside bounds
+    if (0 <= cx <= box_data["Lx"]) and \
+       (0 <= cy <= box_data["Ly"]) and \
+       (0 <= cz <= box_data["Lz"]):
+        return False
+    else:
+        return True
 
 def delete_inside_box(window: QMainWindow) -> None:
     """Deletes the mesh region inside the box.
@@ -27,21 +68,20 @@ def delete_inside_box(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The main window of the application.
     """
-    if not hasattr(window, '_box_bounds'):
-        window.log_output("Box not defined.")
-        return
-    # Get the bounds of the box
-    xmin, xmax, ymin, ymax, zmin, zmax = window._box_bounds
-    # Mask the points inside the box
-    pts = window._current_mesh.points
-    mask = (
-        (pts[:, 0] < xmin) | (pts[:, 0] > xmax) |
-        (pts[:, 1] < ymin) | (pts[:, 1] > ymax) |
-        (pts[:, 2] < zmin) | (pts[:, 2] > zmax)
-    )
-    remaining = window._current_mesh.extract_points(mask, adjacent_cells=True)
+    # Find box origin, axis and projected lenghts
+    box_data = find_box_data(box_corners=window._box_widget_corners)
+    # For each point, check if it is outside the box and create mask
+    outside_box_mask = [point_outside_box(point=point, box_data=box_data)
+                        for point in window._current_mesh.points]
+    # Obtain the points that are outside the box
+    remaining = window._current_mesh.extract_points(outside_box_mask, adjacent_cells=True)
     window._current_mesh = remaining
     # Update visualization
+    if window._current_mesh.n_points == 0:
+        window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
+        window.mesh_actor = None
+        window.log_output("No points left after deletion.")
+        return
     if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
         window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
         if window._current_mesh.n_points > 0:
@@ -49,18 +89,12 @@ def delete_inside_box(window: QMainWindow) -> None:
                 window._current_mesh, name="mesh_actor", 
                 scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
             )
-        else:
-            window.mesh_actor = None
-            window.log_output("No points left after deletion.")
     else:
         window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
         if window._current_mesh.n_points > 0:
             window.mesh_actor = window.visualizer.add_mesh(
                 window._current_mesh, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
             )
-        else:
-            window.mesh_actor = None
-            window.log_output("No points left after deletion.")
     window.visualizer.render()
     window.log_output("Deleted region inside the box.")
 
@@ -98,21 +132,21 @@ def enable_box_selection_for_deletion(window: QMainWindow) -> None:
     mesh_polydata = window.mesh_actor.GetMapper().GetInput().copy()
     window._original_mesh = mesh_polydata.copy()
     window._current_mesh = mesh_polydata.copy()
-    window._box_bounds = list(window._current_mesh.bounds)
     # Callback for box widget
-    def box_callback(bounds: Union[dict, list, tuple]) -> None:
+    def box_callback(box: pv.Box) -> None:
         """Callback function for the box widget to update bounds.
 
         Args:
-            bounds (Union[dict, list, tuple]): The bounds of the box widget.
+            box (pv.Box): The box widget instance.
         """
-        window._box_bounds = get_box_bounds(bounds)
+        # Get the corners of the box, 0-3 from Z-min to and 4-7 from Z-max
+        window._box_widget_corners = box.points.reshape(-1, 3)[:8]
     # Create box widget
     window._box_widget = window.visualizer.add_box_widget(
         callback=box_callback,
         bounds=window._current_mesh.bounds,
         use_planes=False,
-        rotation_enabled=False,
+        rotation_enabled=True,
         color='red'
     )
     # Key press handler
