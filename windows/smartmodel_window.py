@@ -1,6 +1,7 @@
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QSplashScreen, QTextEdit,
-    QHBoxLayout, QVBoxLayout, QLabel, QWidget, QFileDialog, QSplitter, QLineEdit
+    QHBoxLayout, QVBoxLayout, QLabel, QWidget, QFileDialog, QSplitter, 
+    QLineEdit, QRadioButton, QButtonGroup
 )
 from PySide6.QtGui import (
     QPixmap, QPalette, QBrush, QFont, QGuiApplication, QResizeEvent, QIcon
@@ -211,11 +212,35 @@ class SmartmodelWindow(QMainWindow):
         self.text_panel.setPlaceholderText(
             "Logs, status, or descriptions here...")
         self.text_panel.setReadOnly(True)
-        self.download_meshes_btn = QPushButton("Download Meshes")
-        self.download_meshes_btn.setEnabled(False)
-        self.download_meshes_btn.clicked.connect(self.download_meshes_btn_callback)        
+        # Download mesh layout
+        self.download_layout = QHBoxLayout()
+        self.download_layout.setAlignment(Qt.AlignTop)
+        self.download_layout.setSpacing(2)
+        self.download_layout.setContentsMargins(0, 0, 0, 0)
+        # Download mesh button
+        self.download_mesh_btn = QPushButton("Download Mesh")
+        self.download_mesh_btn.setEnabled(False)
+        self.download_mesh_btn.clicked.connect(self.download_mesh_btn_callback)
+        # Download radio buttons with options
+        self.radio_ply = QRadioButton("PLY")
+        self.radio_ply.setChecked(True)
+        self.radio_ply.setEnabled(False)
+        self.radio_las = QRadioButton("LAS")
+        self.radio_las.setEnabled(False)
+        self.radio_xyz = QRadioButton("XYZ")
+        self.radio_xyz.setEnabled(False)
+        self.radio_group = QButtonGroup(self)
+        self.radio_group.addButton(self.radio_ply)
+        self.radio_group.addButton(self.radio_las)
+        self.radio_group.addButton(self.radio_xyz)
+        # Fill in the download layout with the buttons
+        self.download_layout.addWidget(self.download_mesh_btn)
+        self.download_layout.addWidget(self.radio_ply)
+        self.download_layout.addWidget(self.radio_las)
+        self.download_layout.addWidget(self.radio_xyz)
+        # Set up main layout
         layout.addWidget(self.text_panel)
-        layout.addWidget(self.download_meshes_btn)
+        layout.addLayout(self.download_layout)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         """Resize the contents when the window is resized.
@@ -242,6 +267,11 @@ class SmartmodelWindow(QMainWindow):
                                                    "OBJ or PLY Files (*.obj *.ply);;OBJ Files (*.obj);;PLY Files (*.ply)",
                                                    options=options)
         if file_path:
+            # Reseting any previous mesh actor
+            if self.mesh_actor is not None:
+                self.visualizer.remove_actor("mesh_actor")
+                self.mesh_actor = None
+                self.mesh_texture = None
             self.input_file_text_edit.setText(file_path)
             # Do the proper processing according to the file type
             if file_path.endswith(".ply"):
@@ -258,6 +288,7 @@ class SmartmodelWindow(QMainWindow):
                 self.project_mesh_level = "ptc"
                 self.enable_buttons()
             elif file_path.endswith(".obj"):
+                # We dont need to call the mesh process again
                 self.mesh_ptc_btn.setVisible(False)
                 self.mesh_ptc_btn.setEnabled(False)
                 # We must load the mesh from the OBJ file and its MTL file
@@ -324,7 +355,7 @@ class SmartmodelWindow(QMainWindow):
                 button.setChecked(False)
                 button.setEnabled(False)
 
-    def download_meshes_btn_callback(self) -> None:
+    def download_mesh_btn_callback(self) -> None:
         """Callback for the download meshes button.
         """
         self.log_output(self.log_splitter)
@@ -342,7 +373,13 @@ class SmartmodelWindow(QMainWindow):
             return
         self.log_output(f"Current mesh will be downloaded to: {download_folder}")
         # Build file path according to output format
-        output_file_format = "ply"
+        output_file_format = "ply"  # Default format
+        if self.radio_ply.isChecked():
+            output_file_format = "ply"
+        elif self.radio_las.isChecked():
+            output_file_format = "las"
+        elif self.radio_xyz.isChecked():
+            output_file_format = "xyz"
         output_file_path = os.path.join(download_folder, "pointCloud." + output_file_format)
         # Make sure we have the UTM values involved before saving
         if not self.scene_center:
@@ -473,7 +510,10 @@ class SmartmodelWindow(QMainWindow):
         self.delete_tool_btn.setEnabled(False)
         self.elevation_tool_btn.setEnabled(False)
         self.input_file_text_edit.setEnabled(False)
-        self.download_meshes_btn.setEnabled(False)
+        self.download_mesh_btn.setEnabled(False)
+        self.radio_ply.setEnabled(False)
+        self.radio_las.setEnabled(False)
+        self.radio_xyz.setEnabled(False)
         
     def enable_buttons(self) -> None:
         """Enable the buttons in the processing section.
@@ -488,8 +528,11 @@ class SmartmodelWindow(QMainWindow):
         self.delete_tool_btn.setEnabled(True)
         self.elevation_tool_btn.setEnabled(True)
         self.input_file_text_edit.setEnabled(True)
-        self.download_meshes_btn.setEnabled(True)
-
+        if self.project_mesh_level != "texture":
+            self.download_mesh_btn.setEnabled(True)
+            self.radio_ply.setEnabled(True)
+            self.radio_las.setEnabled(True)
+            self.radio_xyz.setEnabled(True)
     # endregion
 # region Main call
 
