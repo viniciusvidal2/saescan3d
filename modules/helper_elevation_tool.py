@@ -77,6 +77,14 @@ def enable_elevation_tool(window: QMainWindow) -> None:
         assign_to_axis="z",
         outline_translation=False,
     )
+    window.visualizer.add_text(
+        "Drag the plane to slice the mesh by Z elevation.\n"
+        "Use the slider to adjust the elevation level.\n",
+        position='lower_left',
+        color='white',
+        name="instructions",
+        font_size=14
+    )
 
 
 def disable_elevation_tool(window: QMainWindow) -> None:

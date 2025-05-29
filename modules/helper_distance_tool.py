@@ -102,6 +102,15 @@ def enable_point_selection_for_distance_measurement(window: QMainWindow) -> None
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._iren = iren
     window._key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
+    window.visualizer.add_text(
+        "Right-click to select points for distance measurement.\n"
+        "Press 'Escape' to clear the selection.\n"
+        "After selecting two points, the distance will be displayed.",
+        position='lower_left',
+        color='white',
+        name="instructions",
+        font_size=14
+    )
 
 
 def disable_point_selection_for_distance_measurement(window: QMainWindow) -> None:

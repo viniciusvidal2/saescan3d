@@ -94,6 +94,15 @@ def enable_box_selection_for_deletion(window: QMainWindow) -> None:
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._delete_iren = iren
     window._delete_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
+    window.visualizer.add_text(
+        "Rotate the box to align with the mesh.\n"
+        "Press 'Return' to delete the region inside the box.\n"
+        "Press 'R' to reset the mesh to its original state.",
+        position='lower_left',
+        color='white',
+        name="instructions",
+        font_size=14
+    )
 
 
 def disable_box_selection_for_deletion(window: QMainWindow) -> None:

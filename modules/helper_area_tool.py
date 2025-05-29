@@ -108,6 +108,15 @@ def enable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._area_iren = iren
     window._area_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
+    window.visualizer.add_text(
+        "Right-click to select points for polygon.\n"
+        "Press Enter to compute area of the polygon.\n"
+        "Press Escape to clear the selection.\n",
+        position='lower_left',
+        color='white',
+        name="instructions",
+        font_size=14
+    )
 
 
 def disable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
@@ -128,7 +137,13 @@ def disable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
     clear_polygon_selection(window)
     # Re-add the original mesh to the visualizer
     if hasattr(window, '_mesh_actor_polydata_backup'):
-        window.mesh_actor = window.visualizer.add_mesh(
-            window._mesh_actor_polydata_backup, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
-        )
+        if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
+            window.mesh_actor = window.visualizer.add_mesh(
+                window._mesh_actor_polydata_backup, name="mesh_actor", 
+                scalars=window._mesh_actor_polydata_backup.point_data["RGB"], rgb=True, reset_camera=False
+            )
+        else:
+            window.mesh_actor = window.visualizer.add_mesh(
+                window._mesh_actor_polydata_backup, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
+            )
         del window._mesh_actor_polydata_backup
