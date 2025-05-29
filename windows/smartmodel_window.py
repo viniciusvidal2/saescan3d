@@ -11,8 +11,10 @@ from sys import exit
 import os
 import pyvista as pv
 import numpy as np
-import shutil
-from modules.tools import get_file_placement_path, read_pyvista_cloud
+from modules.worker_obj import WorkerObj
+from modules.tools import (
+    get_file_placement_path, read_pyvista_cloud, save_pyvista_cloud
+)
 from modules.helper_distance_tool import (
     enable_point_selection_for_distance_measurement, disable_point_selection_for_distance_measurement
 )
@@ -28,7 +30,6 @@ from modules.helper_delete_tool import (
 from modules.helper_volume_tool import (
     enable_volume_calculation, disable_volume_calculation
 )
-from modules.worker_obj import WorkerObj
 
 
 class SmartmodelWindow(QMainWindow):
@@ -99,6 +100,7 @@ class SmartmodelWindow(QMainWindow):
         self.mesh_actor = None
         self.mesh_texture = None
         self.ptc_actor = None
+        self.scene_center = None
         # Flag to control the level of what is loaded in the project
         self.project_mesh_level = None  # ["ptc", "mesh", "texture"]
         
@@ -338,40 +340,19 @@ class SmartmodelWindow(QMainWindow):
             self.log_output("No folder selected. Download cancelled.")
             self.enable_buttons()
             return
-        self.log_output(f"Meshes will be downloaded to: {download_folder}")
-        if self.ptc_actor is not None:
-            # If there is a point cloud actor, we can save it and the mesh as a PLY files
-            ply_file_path = os.path.join(download_folder, "pointCloud.ply")
-            self.log_output(f"Saving point cloud to: {ply_file_path}")
-            polydata=pv.wrap(self.ptc_actor.GetMapper().GetInput())
-            polydata.save(ply_file_path, texture="RGB")
-            if self.mesh_actor is not None:
-                mesh_file_path = os.path.join(download_folder, "Mesh.ply")
-                self.log_output(f"Saving mesh to: {mesh_file_path}")
-                polydata = pv.wrap(self.mesh_actor.GetMapper().GetInput())
-                polydata.save(mesh_file_path, texture="RGB")
+        self.log_output(f"Current mesh will be downloaded to: {download_folder}")
+        # Build file path according to output format
+        output_file_format = "ply"
+        output_file_path = os.path.join(download_folder, "pointCloud." + output_file_format)
+        # Make sure we have the UTM values involved before saving
+        if not self.scene_center:
+            self.prepare_actors_for_visualization()
+        # Save the point cloud or mesh to the specified format
+        if save_pyvista_cloud(ptc_path=output_file_path, format=output_file_format, utm_offset=self.scene_center,
+                              polydata=self.mesh_actor.GetMapper().GetInput(), texture=self.mesh_texture):
+            self.log_output(f"Point cloud saved to: {output_file_path}")
         else:
-            # There is only textured mesh loaded in our environment, so save it
-            if self.mesh_actor is not None:
-                source_obj_folder = os.path.dirname(self.obj_file_path)
-                # Copy MTL file with textures to the download folder
-                mtl_file_name = os.path.basename(self.mtl_file_path)
-                mtl_file_path = os.path.join(download_folder, mtl_file_name)
-                shutil.copy(self.mtl_file_path, mtl_file_path)
-                for file in os.listdir(source_obj_folder):
-                    if file.endswith(".png"):
-                        # Copy texture files to the download folder
-                        source_texture_path = os.path.join(source_obj_folder, file)
-                        destination_texture_path = os.path.join(download_folder, file)
-                        shutil.copy(source_texture_path, destination_texture_path)
-                # Save the OBJ file with the MTL reference
-                obj_file_name = os.path.basename(self.obj_file_path)
-                obj_file_path = os.path.join(download_folder, obj_file_name)
-                self.log_output(f"Saving mesh to: {obj_file_path}")
-                polydata = pv.wrap(self.mesh_actor.GetMapper().GetInput())
-                polydata.save(obj_file_path, texture=self.mesh_texture)
-        # For now, we will just log that the button was clicked
-        self.log_output("Meshes downloaded successfully.")
+            self.log_output("Failed to save the point cloud. Please check the file path and format.")
         self.enable_buttons()
 
     # endregion
@@ -459,7 +440,7 @@ class SmartmodelWindow(QMainWindow):
             self.log_output("No mesh actor found. Please load a mesh first.")
             return
         # Get the center of the scene
-        if not hasattr(self, 'scene_center'):
+        if not self.scene_center:
             self.scene_center = self.mesh_actor.GetMapper().GetInput().center
         # Shift the actors to the center
         for actor in list(self.visualizer.actors.values()):
