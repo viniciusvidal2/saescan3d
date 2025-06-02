@@ -13,8 +13,8 @@ def smooth_mesh_region(window: QMainWindow) -> None:
     mesh_to_keep = window._current_mesh.clip_box(window._delete_box_polydata, invert=True).extract_surface()
     # Apply taubin smoothing to the clipped mesh
     smoothed_mesh = mesh_to_smooth.smooth_taubin(
-        n_iter=20,  
-        pass_band=0.1, 
+        n_iter=window._smooth_params['n_iter'],  
+        pass_band=window._smooth_params['pass_band'], 
         normalize_coordinates=True
     )
     # Combine the smoothed mesh with the rest of the mesh
@@ -99,11 +99,36 @@ def enable_smooth_tool(window: QMainWindow) -> None:
     window._smooth_iren = iren
     window._smooth_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
     window.visualizer.add_text(
-        "PUT TEXT.\n",
+        "Press 'Return' to smooth the mesh inside the box.\n"
+        "Press 'R' to reset the mesh to its original state.\n"
+        "Use the sliders to adjust smoothing parameters.",
         position='lower_left',
         color='white',
         name="instructions",
         font_size=14
+    )
+    # Create slider for smoothing parameters
+    window._smooth_params = {
+        'n_iter': 20,  # Number of iterations for smoothing
+        'pass_band': 0.1,  # Pass band for smoothing
+    }
+    window.visualizer.add_slider_widget(
+        callback=lambda value: setattr(window._smooth_params, 'pass_band', value),
+        value=0.1,
+        rng=[0.02, 0.9],
+        title="Pass Band Parameter",
+        pointa=(0.05, 0.8),
+        pointb=(0.35, 0.8),
+        style='modern'
+    )
+    window.visualizer.add_slider_widget(
+        callback=lambda value: setattr(window._smooth_params, 'n_iter', int(value)),
+        value=20,
+        rng=[1, 100],
+        title="Number of Iterations",
+        pointa=(0.45, 0.8),
+        pointb=(0.75, 0.8),
+        style='modern'
     )
 
 
@@ -123,6 +148,8 @@ def disable_smooth_tool(window: QMainWindow) -> None:
         window._smooth_iren.RemoveObserver(window._smooth_key_observer_tag)
         del window._smooth_iren
         del window._smooth_key_observer_tag
+    if hasattr(window, '_smooth_params'):
+        del window._smooth_params
     # Re-add mesh
     if window._current_mesh.n_points == 0:
         window.mesh_actor = None
