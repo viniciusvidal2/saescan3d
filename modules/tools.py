@@ -5,6 +5,8 @@ import numpy as np
 import open3d as o3d
 import pyvista as pv
 import laspy
+import rasterio
+from rasterio.transform import from_origin
 
 
 
@@ -116,7 +118,7 @@ def save_pyvista_cloud(ptc_path: str, format: str, utm_offset: np.ndarray, polyd
 
     Args:
         ptc_path (str): Path to save the point cloud file.
-        format (str): Format to save the point cloud, e.g., 'ply', 'las', 'xyz'.
+        format (str): Format to save the point cloud, e.g., 'ply', 'las', 'xyz', 'tif'.
         utm_offset (np.ndarray): UTM offset to apply to the point cloud coordinates.
         polydata (pv.PolyData): The point cloud to save.
         texture (pv.texture, optional): Texture to apply if saving as 'texture'.
@@ -177,4 +179,47 @@ def save_pyvista_cloud(ptc_path: str, format: str, utm_offset: np.ndarray, polyd
         with open(ptc_path, 'w') as f:
             for point, color in zip(points, rgb):
                 f.write(f"{point[0]:.10f} {point[1]:.10f} {point[2]:.10f} {int(color[0])} {int(color[1])} {int(color[2])}\n")
+    elif format.lower() == "tif":
+        x = points[:, 0]
+        y = points[:, 1]
+        z = points[:, 2]  # Typically elevation
+        # Define grid resolution (e.g., 1 meter)
+        resolution = 1.0
+        # Calculate bounds
+        xmin, xmax = x.min(), x.max()
+        ymin, ymax = y.min(), y.max()
+        # Create grid coordinates
+        x_grid = np.arange(xmin, xmax + resolution, resolution)
+        y_grid = np.arange(ymin, ymax + resolution, resolution)
+        # Create 2D grid for DEM
+        grid_z = np.full((len(y_grid), len(x_grid)), np.nan)
+        # Populate the grid (taking max z per cell as an example)
+        for xi, yi, zi in zip(x, y, z):
+            x_idx = int((xi - xmin) // resolution)
+            y_idx = int((yi - ymin) // resolution)
+            if np.isnan(grid_z[y_idx, x_idx]):
+                grid_z[y_idx, x_idx] = zi
+            else:
+                grid_z[y_idx, x_idx] = max(grid_z[y_idx, x_idx], zi)
+        # Set transform for GeoTIFF
+        transform = from_origin(
+            xmin, ymax,  # Upper-left corner
+            resolution, resolution  # Pixel size
+        )
+        # Define CRS
+        crs = "EPSG:32723"  # Change to your UTM zone
+        # Write to GeoTIFF
+        with rasterio.open(
+            ptc_path,
+            'w',
+            driver='GTiff',
+            height=grid_z.shape[0],
+            width=grid_z.shape[1],
+            count=1,
+            dtype=grid_z.dtype,
+            crs=crs,
+            transform=transform,
+            nodata=np.nan
+        ) as dst:
+            dst.write(np.flipud(grid_z), 1)  # Flip Y-axis because raster origin is top-left
     return os.path.exists(ptc_path)

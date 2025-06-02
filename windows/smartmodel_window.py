@@ -229,15 +229,20 @@ class SmartmodelWindow(QMainWindow):
         self.radio_las.setEnabled(False)
         self.radio_xyz = QRadioButton("XYZ")
         self.radio_xyz.setEnabled(False)
+        self.radio_geotiff = QRadioButton("GeoTIFF")
+        self.radio_geotiff.setEnabled(False)
+        # Group the radio buttons
         self.radio_group = QButtonGroup(self)
         self.radio_group.addButton(self.radio_ply)
         self.radio_group.addButton(self.radio_las)
         self.radio_group.addButton(self.radio_xyz)
+        self.radio_group.addButton(self.radio_geotiff)
         # Fill in the download layout with the buttons
         self.download_layout.addWidget(self.download_mesh_btn)
         self.download_layout.addWidget(self.radio_ply)
         self.download_layout.addWidget(self.radio_las)
         self.download_layout.addWidget(self.radio_xyz)
+        self.download_layout.addWidget(self.radio_geotiff)
         # Set up main layout
         layout.addWidget(self.text_panel)
         layout.addLayout(self.download_layout)
@@ -380,6 +385,8 @@ class SmartmodelWindow(QMainWindow):
             output_file_format = "las"
         elif self.radio_xyz.isChecked():
             output_file_format = "xyz"
+        elif self.radio_geotiff.isChecked():
+            output_file_format = "tif"
         output_file_path = os.path.join(download_folder, "pointCloud." + output_file_format)
         # Make sure we have the UTM values involved before saving
         if not self.scene_center:
@@ -514,6 +521,7 @@ class SmartmodelWindow(QMainWindow):
         self.radio_ply.setEnabled(False)
         self.radio_las.setEnabled(False)
         self.radio_xyz.setEnabled(False)
+        self.radio_geotiff.setEnabled(False)
         
     def enable_buttons(self) -> None:
         """Enable the buttons in the processing section.
@@ -533,6 +541,7 @@ class SmartmodelWindow(QMainWindow):
             self.radio_ply.setEnabled(True)
             self.radio_las.setEnabled(True)
             self.radio_xyz.setEnabled(True)
+            self.radio_geotiff.setEnabled(True)
     # endregion
 # region Main call
 
