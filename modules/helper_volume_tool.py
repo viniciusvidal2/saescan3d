@@ -14,7 +14,7 @@ def perform_volume_clipping(window: QMainWindow) -> None:
     for name, plane in window._volume_box_planes.items():
         if name == "Z-max":
             continue
-        clipped_mesh = clipped_mesh.clip(normal=-plane["normal"], origin=plane["origin"])
+        clipped_mesh = clipped_mesh.clip(normal=-plane["normal"], origin=plane["origin"]).extract_surface()
     if clipped_mesh.n_points == 0:
         window.log_output("No points in the clipped mesh. Exiting volume calculation.")
         return

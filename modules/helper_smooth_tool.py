@@ -113,7 +113,7 @@ def enable_smooth_tool(window: QMainWindow) -> None:
         'pass_band': 0.1,  # Pass band for smoothing
     }
     window.visualizer.add_slider_widget(
-        callback=lambda value: setattr(window._smooth_params, 'pass_band', value),
+        callback=lambda value: window._smooth_params.__setitem__('pass_band', float(value)),
         value=0.1,
         rng=[0.02, 0.9],
         title="Pass Band Parameter",
@@ -122,7 +122,7 @@ def enable_smooth_tool(window: QMainWindow) -> None:
         style='modern'
     )
     window.visualizer.add_slider_widget(
-        callback=lambda value: setattr(window._smooth_params, 'n_iter', int(value)),
+        callback=lambda value: window._smooth_params.__setitem__('n_iter', int(value)),
         value=20,
         rng=[1, 100],
         title="Number of Iterations",

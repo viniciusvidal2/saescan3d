@@ -9,7 +9,7 @@ def delete_inside_box(window: QMainWindow) -> None:
         window (QMainWindow): The main window of the application.
     """
     # Clip using the box widget polydata
-    window._current_mesh = window._current_mesh.clip_box(window._delete_box_polydata, invert=True)
+    window._current_mesh = window._current_mesh.clip_box(window._delete_box_polydata, invert=True).extract_surface()
     # Update visualization
     window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
     if window._current_mesh.n_points == 0:
@@ -122,9 +122,9 @@ def disable_delete_tool(window: QMainWindow) -> None:
         del window._delete_iren
         del window._delete_key_observer_tag
     # Re-add mesh
-    if window._current_mesh.n_points == 0:
-        window.mesh_actor = None
-    else:
+    window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
+    window.mesh_actor = None
+    if window._current_mesh.n_points > 0:
         if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
             window.mesh_actor = window.visualizer.add_mesh(
                 window._current_mesh.copy(), name="mesh_actor", 
