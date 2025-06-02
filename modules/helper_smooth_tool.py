@@ -117,8 +117,8 @@ def enable_smooth_tool(window: QMainWindow) -> None:
         value=0.1,
         rng=[0.02, 0.9],
         title="Pass Band Parameter",
-        pointa=(0.05, 0.8),
-        pointb=(0.35, 0.8),
+        pointa=(0.05, 0.92),
+        pointb=(0.25, 0.92),
         style='modern'
     )
     window.visualizer.add_slider_widget(
@@ -126,8 +126,8 @@ def enable_smooth_tool(window: QMainWindow) -> None:
         value=20,
         rng=[1, 100],
         title="Number of Iterations",
-        pointa=(0.45, 0.8),
-        pointb=(0.75, 0.8),
+        pointa=(0.30, 0.92),
+        pointb=(0.60, 0.92),
         style='modern'
     )
 

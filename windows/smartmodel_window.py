@@ -352,6 +352,10 @@ class SmartmodelWindow(QMainWindow):
         """Callback for the mesh point cloud button.
         """
         self.log_output(self.log_splitter)
+        if self.project_mesh_level == "mesh" or self.project_mesh_level == "texture":
+            self.log_output("Mesh already created.")
+            self.enable_buttons()
+            return
         self.log_output("Processing the point cloud to create a mesh...")
         # Apply a Delaunay triangulation to the point cloud
         ptc_polydata = self.mesh_actor.GetMapper().GetInput()
