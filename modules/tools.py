@@ -7,7 +7,7 @@ import pyvista as pv
 import laspy
 import rasterio
 from rasterio.transform import from_origin
-
+from rasterio.crs import CRS
 
 
 def get_file_placement_path(relative_path: str) -> str:
@@ -113,7 +113,8 @@ def read_pyvista_cloud(ptc_path: str) -> pv.PolyData:
         return point_cloud_polydata
 
 
-def save_pyvista_cloud(ptc_path: str, format: str, utm_offset: np.ndarray, polydata: pv.PolyData, texture: pv.texture = None) -> bool:
+def save_pyvista_cloud(ptc_path: str, format: str, utm_offset: np.ndarray, polydata: pv.PolyData, 
+                       texture: pv.texture, resolution: float, utm_zone: str) -> bool:
     """Save the point cloud to a file.
 
     Args:
@@ -121,7 +122,9 @@ def save_pyvista_cloud(ptc_path: str, format: str, utm_offset: np.ndarray, polyd
         format (str): Format to save the point cloud, e.g., 'ply', 'las', 'xyz', 'tif'.
         utm_offset (np.ndarray): UTM offset to apply to the point cloud coordinates.
         polydata (pv.PolyData): The point cloud to save.
-        texture (pv.texture, optional): Texture to apply if saving as 'texture'.
+        texture (pv.texture): Texture to apply if saving as 'texture'.
+        resolution (float): Resolution for the point cloud, in meters.
+        utm_zone (str): UTM zone for the point cloud.
 
     Returns:
         bool: True if the save was successful, False otherwise.
@@ -141,8 +144,8 @@ def save_pyvista_cloud(ptc_path: str, format: str, utm_offset: np.ndarray, polyd
             rgb = rgb.astype(np.uint16)
         # Prepare LAS header
         header = laspy.LasHeader(point_format=3, version="1.2")  # Point format 3 supports RGB
-        # Set offset and scale for 2 cm resolution
-        header.x_scale = header.y_scale = header.z_scale = 0.02
+        # Set offset and scale
+        header.x_scale = header.y_scale = header.z_scale = resolution  # [m]
         header.x_offset = points[:, 0].min()
         header.y_offset = points[:, 1].min()
         header.z_offset = points[:, 2].min()
@@ -183,8 +186,6 @@ def save_pyvista_cloud(ptc_path: str, format: str, utm_offset: np.ndarray, polyd
         x = points[:, 0]
         y = points[:, 1]
         z = points[:, 2]  # Typically elevation
-        # Define grid resolution (e.g., 1 meter)
-        resolution = 1.0
         # Calculate bounds
         xmin, xmax = x.min(), x.max()
         ymin, ymax = y.min(), y.max()
@@ -207,7 +208,11 @@ def save_pyvista_cloud(ptc_path: str, format: str, utm_offset: np.ndarray, polyd
             resolution, resolution  # Pixel size
         )
         # Define CRS
-        crs = "EPSG:32723"  # Change to your UTM zone
+        proj_string = (
+            f"+proj=utm +zone={utm_zone} +south "
+            "+datum=WGS84 +units=m +no_defs"
+        )
+        crs = CRS.from_string(proj_string)
         # Write to GeoTIFF
         with rasterio.open(
             ptc_path,

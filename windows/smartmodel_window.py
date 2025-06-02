@@ -78,7 +78,7 @@ class SmartmodelWindow(QMainWindow):
         """)
         left_down_layout = QVBoxLayout(self.left_down_panel)
         self.setup_visualizer_section(left_down_layout)
-        # Right panel with the text panel
+        # Right panel with the text panel and download options
         self.right_panel = QWidget()
         right_layout = QVBoxLayout(self.right_panel)
         self.setup_right_panel(right_layout)
@@ -225,12 +225,16 @@ class SmartmodelWindow(QMainWindow):
         self.radio_ply = QRadioButton("PLY")
         self.radio_ply.setChecked(True)
         self.radio_ply.setEnabled(False)
+        self.radio_ply.toggled.connect(self.toggle_save_options)
         self.radio_las = QRadioButton("LAS")
         self.radio_las.setEnabled(False)
+        self.radio_las.toggled.connect(self.toggle_save_options)
         self.radio_xyz = QRadioButton("XYZ")
         self.radio_xyz.setEnabled(False)
+        self.radio_xyz.toggled.connect(self.toggle_save_options)
         self.radio_geotiff = QRadioButton("GeoTIFF")
         self.radio_geotiff.setEnabled(False)
+        self.radio_geotiff.toggled.connect(self.toggle_save_options)
         # Group the radio buttons
         self.radio_group = QButtonGroup(self)
         self.radio_group.addButton(self.radio_ply)
@@ -378,26 +382,79 @@ class SmartmodelWindow(QMainWindow):
             return
         self.log_output(f"Current mesh will be downloaded to: {download_folder}")
         # Build file path according to output format
+        resolution = 1.0  # Default resolution for GeoTIFF
+        utm_zone = "23"  # Default UTM zone
         output_file_format = "ply"  # Default format
         if self.radio_ply.isChecked():
             output_file_format = "ply"
         elif self.radio_las.isChecked():
             output_file_format = "las"
+            resolution = float(self.las_resolution_line_edit.text())
         elif self.radio_xyz.isChecked():
             output_file_format = "xyz"
         elif self.radio_geotiff.isChecked():
             output_file_format = "tif"
+            resolution = float(self.resolution_line_edit.text())
+            utm_zone = self.utm_zone_line_edit.text()
         output_file_path = os.path.join(download_folder, "pointCloud." + output_file_format)
         # Make sure we have the UTM values involved before saving
         if not self.scene_center:
             self.prepare_actors_for_visualization()
         # Save the point cloud or mesh to the specified format
         if save_pyvista_cloud(ptc_path=output_file_path, format=output_file_format, utm_offset=self.scene_center,
-                              polydata=self.mesh_actor.GetMapper().GetInput(), texture=self.mesh_texture):
+                              polydata=self.mesh_actor.GetMapper().GetInput(), texture=self.mesh_texture,
+                              resolution=resolution, utm_zone=utm_zone):
             self.log_output(f"Point cloud saved to: {output_file_path}")
         else:
             self.log_output("Failed to save the point cloud. Please check the file path and format.")
         self.enable_buttons()
+
+    def toggle_save_options(self) -> None:
+        """Toggle the visibility of the save options.
+        """
+        right_layout = self.right_panel.layout()
+        # Clean previous layouts if they exist
+        if hasattr(self, 'geotiff_options_layout'):
+            right_layout.removeItem(self.geotiff_options_layout)
+            for widget in (self.resolution_label, self.resolution_line_edit,
+                        self.utm_zone_label, self.utm_zone_line_edit):
+                right_layout.removeWidget(widget)
+                widget.deleteLater()
+            self.geotiff_options_layout.deleteLater()
+            del self.geotiff_options_layout
+            del self.resolution_label
+            del self.resolution_line_edit
+            del self.utm_zone_label
+            del self.utm_zone_line_edit
+        if hasattr(self, 'las_options_layout'):
+            right_layout.removeItem(self.las_options_layout)
+            for widget in (self.las_resolution_label, self.las_resolution_line_edit):
+                right_layout.removeWidget(widget)
+                widget.deleteLater()
+            self.las_options_layout.deleteLater()
+            del self.las_options_layout
+            del self.las_resolution_label
+            del self.las_resolution_line_edit
+        # Add new layout based on selection
+        if self.radio_geotiff.isChecked():
+            self.geotiff_options_layout = QHBoxLayout()
+            self.geotiff_options_layout.setAlignment(Qt.AlignTop)
+            self.resolution_label = QLabel("Resolution [m]:")
+            self.resolution_line_edit = QLineEdit("1.0")
+            self.utm_zone_label = QLabel("UTM Zone:")
+            self.utm_zone_line_edit = QLineEdit("23")
+            for widget in (self.resolution_label, self.resolution_line_edit,
+                        self.utm_zone_label, self.utm_zone_line_edit):
+                self.geotiff_options_layout.addWidget(widget)
+            right_layout.addLayout(self.geotiff_options_layout)
+        elif self.radio_las.isChecked():
+            self.las_options_layout = QHBoxLayout()
+            self.las_options_layout.setAlignment(Qt.AlignTop)
+            self.las_resolution_label = QLabel("Resolution [m]:")
+            self.las_resolution_line_edit = QLineEdit("1.0")
+            for widget in (self.las_resolution_label, self.las_resolution_line_edit):
+                self.las_options_layout.addWidget(widget)
+            right_layout.addLayout(self.las_options_layout)
 
     # endregion
     # region Visualizer tools Callbacks
