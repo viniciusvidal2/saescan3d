@@ -53,7 +53,7 @@ def clear_all_points(window: QMainWindow) -> None:
     window.visualizer.render()
     
 
-def enable_point_selection_for_distance_measurement(window: QMainWindow) -> None:
+def enable_distance_tool(window: QMainWindow) -> None:
     """Enable point selection for distance measurement.
     """
     # Get a backup of the original mesh actor polydata
@@ -113,7 +113,7 @@ def enable_point_selection_for_distance_measurement(window: QMainWindow) -> None
     )
 
 
-def disable_point_selection_for_distance_measurement(window: QMainWindow) -> None:
+def disable_distance_tool(window: QMainWindow) -> None:
     """Disable point selection for distance measurement.
 
     Args:

@@ -100,7 +100,7 @@ def get_plane_params(plane: dict) -> tuple:
     return extrude_plane, extrude_direction
 
 
-def enable_volume_calculation(window: QMainWindow) -> None:
+def enable_volume_tool(window: QMainWindow) -> None:
     """Enable volume calculation in the provided window.
 
     Args:
@@ -166,7 +166,7 @@ def enable_volume_calculation(window: QMainWindow) -> None:
     )
 
 
-def disable_volume_calculation(window: QMainWindow) -> None:
+def disable_volume_tool(window: QMainWindow) -> None:
     """Disable volume calculation in the provided window.
 
     Args:

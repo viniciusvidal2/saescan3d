@@ -72,7 +72,7 @@ def clear_polygon_selection(window: QMainWindow) -> None:
     window.visualizer.render()
 
 
-def enable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
+def enable_area_tool(window: QMainWindow) -> None:
     """Enables interactive polygon selection and area measurement.
 
     Args:
@@ -119,7 +119,7 @@ def enable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
     )
 
 
-def disable_polygon_selection_for_area_measurement(window: QMainWindow) -> None:
+def disable_area_tool(window: QMainWindow) -> None:
     """Disables polygon selection and removes any observers and visuals.
     
     Args:

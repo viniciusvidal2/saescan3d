@@ -17,19 +17,22 @@ from modules.tools import (
     get_file_placement_path, read_pyvista_cloud, save_pyvista_cloud
 )
 from modules.helper_distance_tool import (
-    enable_point_selection_for_distance_measurement, disable_point_selection_for_distance_measurement
+    enable_distance_tool, disable_distance_tool
 )
 from modules.helper_area_tool import (
-    enable_polygon_selection_for_area_measurement, disable_polygon_selection_for_area_measurement
+    enable_area_tool, disable_area_tool
 )
 from modules.helper_elevation_tool import (
     enable_elevation_tool, disable_elevation_tool
 )
 from modules.helper_delete_tool import (
-    enable_box_selection_for_deletion, disable_box_selection_for_deletion
+    enable_delete_tool, disable_delete_tool
 )
 from modules.helper_volume_tool import (
-    enable_volume_calculation, disable_volume_calculation
+    enable_volume_tool, disable_volume_tool
+)
+from modules.helper_smooth_tool import (
+    enable_smooth_tool, disable_smooth_tool
 )
 
 
@@ -185,14 +188,22 @@ class SmartmodelWindow(QMainWindow):
         self.elevation_tool_btn.setCheckable(True)
         self.elevation_tool_btn.setChecked(False)
         self.elevation_tool_btn.clicked.connect(self.elevation_tool_btn_callback)
+        self.smooth_tool_btn = QPushButton()
+        self.smooth_tool_btn.setIcon(QIcon(get_file_placement_path("resources/smoothOFF.ico")))
+        self.smooth_tool_btn.setToolTip("Smooth the mesh")
+        self.smooth_tool_btn.setEnabled(False)
+        self.smooth_tool_btn.setCheckable(True)
+        self.smooth_tool_btn.setChecked(False)
+        self.smooth_tool_btn.clicked.connect(self.smooth_tool_btn_callback)
         self.vis_btn_layout.addWidget(self.distance_tool_btn)
         self.vis_btn_layout.addWidget(self.area_tool_btn)
         self.vis_btn_layout.addWidget(self.volume_tool_btn)
         self.vis_btn_layout.addWidget(self.delete_tool_btn)
         self.vis_btn_layout.addWidget(self.elevation_tool_btn)
+        self.vis_btn_layout.addWidget(self.smooth_tool_btn)
         self.visualizer_tools_btns = [
             self.distance_tool_btn, self.area_tool_btn, self.volume_tool_btn, 
-            self.delete_tool_btn, self.elevation_tool_btn
+            self.delete_tool_btn, self.elevation_tool_btn, self.smooth_tool_btn
         ]
         # Pyvista visualizer
         self.visualizer = QtInteractor(self)
@@ -467,11 +478,11 @@ class SmartmodelWindow(QMainWindow):
             self.log_output("Distance tool activated.")
             self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceON.ico")))
             self.disable_other_tools(self.distance_tool_btn)
-            enable_point_selection_for_distance_measurement(self)
+            enable_distance_tool(self)
         else:
             self.log_output("Distance tool deactivated.")
             self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceOFF.ico")))
-            disable_point_selection_for_distance_measurement(self)
+            disable_distance_tool(self)
             self.enable_buttons()
 
     def area_tool_btn_callback(self) -> None:
@@ -482,11 +493,11 @@ class SmartmodelWindow(QMainWindow):
             self.log_output("Area tool activated.")
             self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaON.ico")))
             self.disable_other_tools(self.area_tool_btn)
-            enable_polygon_selection_for_area_measurement(self)
+            enable_area_tool(self)
         else:
             self.log_output("Area tool deactivated.")
             self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaOFF.ico")))
-            disable_polygon_selection_for_area_measurement(self)
+            disable_area_tool(self)
             self.enable_buttons()
 
     def volume_tool_btn_callback(self) -> None:
@@ -497,11 +508,11 @@ class SmartmodelWindow(QMainWindow):
             self.log_output("Volume tool activated.")
             self.volume_tool_btn.setIcon(QIcon(get_file_placement_path("resources/volumeON.ico")))
             self.disable_other_tools(self.volume_tool_btn)
-            enable_volume_calculation(self)
+            enable_volume_tool(self)
         else:
             self.log_output("Volume tool deactivated.")
             self.volume_tool_btn.setIcon(QIcon(get_file_placement_path("resources/volumeOFF.ico")))
-            disable_volume_calculation(self)
+            disable_volume_tool(self)
             self.enable_buttons()
 
     def delete_tool_btn_callback(self) -> None:
@@ -512,11 +523,11 @@ class SmartmodelWindow(QMainWindow):
             self.log_output("Delete tool activated.")
             self.delete_tool_btn.setIcon(QIcon(get_file_placement_path("resources/deletePointsON.ico")))
             self.disable_other_tools(self.delete_tool_btn)
-            enable_box_selection_for_deletion(self)
+            enable_delete_tool(self)
         else:
             self.log_output("Delete tool deactivated.")
             self.delete_tool_btn.setIcon(QIcon(get_file_placement_path("resources/deletePointsOFF.ico")))
-            disable_box_selection_for_deletion(self)
+            disable_delete_tool(self)
             self.enable_buttons()
 
     def elevation_tool_btn_callback(self) -> None:
@@ -532,6 +543,21 @@ class SmartmodelWindow(QMainWindow):
             self.log_output("Elevation tool deactivated.")
             self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationOFF.ico")))
             disable_elevation_tool(self)
+            self.enable_buttons()
+
+    def smooth_tool_btn_callback(self) -> None:
+        """Callback for the smooth tool button.
+        """
+        self.log_output(self.log_splitter)
+        if self.smooth_tool_btn.isChecked():
+            self.log_output("Smooth tool activated.")
+            self.smooth_tool_btn.setIcon(QIcon(get_file_placement_path("resources/smoothON.ico")))
+            self.disable_other_tools(self.smooth_tool_btn)
+            enable_smooth_tool(self)
+        else:
+            self.log_output("Smooth tool deactivated.")
+            self.smooth_tool_btn.setIcon(QIcon(get_file_placement_path("resources/smoothOFF.ico")))
+            disable_smooth_tool(self)
             self.enable_buttons()
 
     def prepare_actors_for_visualization(self) -> None:
@@ -573,6 +599,7 @@ class SmartmodelWindow(QMainWindow):
         self.volume_tool_btn.setEnabled(False)
         self.delete_tool_btn.setEnabled(False)
         self.elevation_tool_btn.setEnabled(False)
+        self.smooth_tool_btn.setEnabled(False)
         self.input_file_text_edit.setEnabled(False)
         self.download_mesh_btn.setEnabled(False)
         self.radio_ply.setEnabled(False)
@@ -590,6 +617,7 @@ class SmartmodelWindow(QMainWindow):
         if self.project_mesh_level == "mesh" or self.project_mesh_level == "texture":
             self.area_tool_btn.setEnabled(True)
             self.volume_tool_btn.setEnabled(True)
+            self.smooth_tool_btn.setEnabled(True)
         self.delete_tool_btn.setEnabled(True)
         self.elevation_tool_btn.setEnabled(True)
         self.input_file_text_edit.setEnabled(True)
