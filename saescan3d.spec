@@ -12,7 +12,7 @@ a = Analysis(
         ('dependencies/meshroom', 'dependencies/meshroom'),
     ],
     hiddenimports=[
-        'numpy', 'open3d', 'utm',
+        'numpy', 'open3d', 'utm', 'rasterio', 'rasterio.sample', 'rasterio.vrt', 'rasterio._features',
         'pyvista', 'pyvistaqt', 'PySide6',
         'vtkmodules', 'vtkmodules.all', 'vtkmodules.util', 'vtkmodules.util.data_model', 'vtkmodules.util.execution_model'
     ],
