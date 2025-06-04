@@ -1,7 +1,7 @@
 ; installer.iss
 [Setup]
 AppName=SAEScan3D
-AppVersion=1.0.0
+AppVersion=1.0.1
 DefaultDirName={pf64}\SAEScan3D
 DefaultGroupName=SAEScan3D
 OutputDir=.
