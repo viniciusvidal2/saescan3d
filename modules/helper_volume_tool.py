@@ -14,15 +14,20 @@ def perform_volume_clipping(window: QMainWindow) -> None:
     for name, plane in window._volume_box_planes.items():
         if name == "Z-max":
             continue
-        clipped_mesh = clipped_mesh.clip(normal=-plane["normal"], origin=plane["origin"]).extract_surface()
+        clipped_mesh = clipped_mesh.clip(
+            normal=-plane["normal"], origin=plane["origin"]).extract_surface()
     if clipped_mesh.n_points == 0:
-        window.log_output("No points in the clipped mesh. Exiting volume calculation.")
+        window.log_output(
+            "No points in the clipped mesh. Exiting volume calculation.")
         return
     # Extrude the clipped mesh using the Z-min plane
-    extrude_plane, extrude_direction = get_plane_params(plane=window._volume_box_planes["Z-min"])
-    extruded_mesh = clipped_mesh.extrude_trim(direction=extrude_direction, trim_surface=extrude_plane, extrusion="boundary_edges")
+    extrude_plane, extrude_direction = get_plane_params(
+        plane=window._volume_box_planes["Z-min"])
+    extruded_mesh = clipped_mesh.extrude_trim(
+        direction=extrude_direction, trim_surface=extrude_plane, extrusion="boundary_edges")
     # Get the extruded mesh volume and add to the visualizer
-    window.log_output(f"VOLUME of the extruded mesh: {extruded_mesh.volume:.2f} cubic meters.")
+    window.log_output(
+        f"VOLUME of the extruded mesh: {extruded_mesh.volume:.2f} cubic meters.")
     window.volume_text_actor = window.visualizer.add_text(
         f"Volume: {extruded_mesh.volume:.2f} cubic meters",
         position='upper_left',
@@ -36,14 +41,14 @@ def perform_volume_clipping(window: QMainWindow) -> None:
     window.extruded_mesh_actor = window.visualizer.add_mesh(
         extruded_mesh, color='orange', opacity=0.6, name="extruded_mesh_actor", reset_camera=False
     )
-    
+
 
 def get_planes_from_box_widget(box_points: np.ndarray) -> dict:
     """Get the planes from the box widget points.
 
     Args:
         box_points (np.ndarray): The points of the box widget.
-    
+
     Returns:
         dict: A dictionary containing the planes' origins, normals, and corner points.
     """
@@ -82,18 +87,18 @@ def get_planes_from_box_widget(box_points: np.ndarray) -> dict:
 
 def get_plane_params(plane: dict) -> tuple:
     """Get the extrude plane and direction based on the provided plane.
-    
+
     Args:
         plane (dict): A dictionary containing the origin and normal of the plane.
-    
+
     Returns:
         tuple: A tuple containing the extrude plane (as a PolyData) and the extrude direction (as a numpy array).
     """
     # Create a plane mesh
     i_size = np.linalg.norm(plane["corners"][0] - plane["corners"][1])
     j_size = np.linalg.norm(plane["corners"][0] - plane["corners"][3])
-    extrude_plane = pv.Plane(center=np.array(plane["origin"]), 
-                             direction=np.array(plane["normal"]), 
+    extrude_plane = pv.Plane(center=np.array(plane["origin"]),
+                             direction=np.array(plane["normal"]),
                              i_size=i_size, j_size=j_size)
     # Define the extrude direction as the negative of the normal
     extrude_direction = -np.array(plane["normal"])
@@ -109,15 +114,17 @@ def enable_volume_tool(window: QMainWindow) -> None:
     # Get a backup of the original mesh actor polydata
     window._mesh_actor_polydata_backup = window.mesh_actor.GetMapper().GetInput().copy()
     # Creates the box widget callback that will be used to generate the mesh clip and volume region
+
     def callback(box: pv.Box):
         """Callback function for the box widget.
-        
+
         Args:
             box (pv.Box): The box widget instance.
         """
         # Calculate the planes of the box from the widget points
         box_widget_points = box.points.reshape(-1, 3)
-        window._volume_box_planes = get_planes_from_box_widget(box_points=box_widget_points)
+        window._volume_box_planes = get_planes_from_box_widget(
+            box_points=box_widget_points)
         # Remove any previous clipped or volume actors, plus the tools actors too
         for actor_name in list(window.visualizer.actors.keys()):
             if actor_name.startswith("Z-min-corner-") or actor_name == "extrude_direction_arrow_helper":
@@ -127,12 +134,17 @@ def enable_volume_tool(window: QMainWindow) -> None:
         # Add 4 spheres as the corners of the Z-min plane
         for i, corner in enumerate(window._volume_box_planes["Z-min"]["corners"]):
             sphere = pv.Sphere(radius=1, center=corner)
-            window.visualizer.add_mesh(sphere, color='blue', opacity=0.6, name=f"Z-min-corner-{i}", reset_camera=False)
+            window.visualizer.add_mesh(
+                sphere, color='blue', opacity=0.6, name=f"Z-min-corner-{i}", reset_camera=False)
         # Add arrow to indicate extrusion direction
-        extrude_plane, extrude_direction = get_plane_params(plane=window._volume_box_planes["Z-min"])
-        arrow_length = np.linalg.norm(box_widget_points[13][2] - box_widget_points[12][2]) / 3
-        arrow = pv.Arrow(start=extrude_plane.center, direction=-extrude_direction, scale=arrow_length)
-        window.visualizer.add_mesh(arrow, color='blue', name="extrude_direction_arrow_helper", reset_camera=False)
+        extrude_plane, extrude_direction = get_plane_params(
+            plane=window._volume_box_planes["Z-min"])
+        arrow_length = np.linalg.norm(
+            box_widget_points[13][2] - box_widget_points[12][2]) / 3
+        arrow = pv.Arrow(start=extrude_plane.center, direction=-
+                         extrude_direction, scale=arrow_length)
+        window.visualizer.add_mesh(
+            arrow, color='blue', name="extrude_direction_arrow_helper", reset_camera=False)
     # Create the box widget with the specified bounds and callback
     window._volume_box_widget = window.visualizer.add_box_widget(
         callback=callback,
@@ -141,6 +153,7 @@ def enable_volume_tool(window: QMainWindow) -> None:
         color='black'
     )
     # Key press handler callback for volume calculation
+
     def key_press_callback(interactor, event: object) -> None:
         """Callback function for key press events during volume calculation.
 
@@ -154,7 +167,8 @@ def enable_volume_tool(window: QMainWindow) -> None:
     # Create the key observer
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._delete_iren = iren
-    window._delete_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
+    window._delete_key_observer_tag = iren.AddObserver(
+        "KeyPressEvent", key_press_callback)
     window.instructions_text_actor = window.visualizer.add_text(
         f"Rotate the box to align with the mesh.\n"
         f"The reference plane has an arrow and four spheres at the corners.\n"
@@ -174,10 +188,12 @@ def disable_volume_tool(window: QMainWindow) -> None:
     """
     # Clear the texts
     if hasattr(window, 'instructions_text_actor'):
-        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        window.visualizer.remove_actor(
+            window.instructions_text_actor, reset_camera=False)
         del window.instructions_text_actor
     if hasattr(window, 'volume_text_actor'):
-        window.visualizer.remove_actor(window.volume_text_actor, reset_camera=False)
+        window.visualizer.remove_actor(
+            window.volume_text_actor, reset_camera=False)
         del window.volume_text_actor
     # Remove the actors added by the volume calculation
     for actor_name in list(window.visualizer.actors.keys()):

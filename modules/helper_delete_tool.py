@@ -4,12 +4,13 @@ import pyvista as pv
 
 def delete_inside_box(window: QMainWindow) -> None:
     """Deletes the mesh region inside the box.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
     """
     # Clip using the box widget polydata
-    window._current_mesh = window._current_mesh.clip_box(window._delete_box_polydata, invert=True).extract_surface()
+    window._current_mesh = window._current_mesh.clip_box(
+        window._delete_box_polydata, invert=True).extract_surface()
     # Update visualization
     window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
     if window._current_mesh.n_points == 0:
@@ -18,7 +19,7 @@ def delete_inside_box(window: QMainWindow) -> None:
         return
     if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
         window.mesh_actor = window.visualizer.add_mesh(
-            window._current_mesh, name="mesh_actor", 
+            window._current_mesh, name="mesh_actor",
             scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
         )
     else:
@@ -30,7 +31,7 @@ def delete_inside_box(window: QMainWindow) -> None:
 
 def reset_mesh(window: QMainWindow) -> None:
     """Resets the mesh to its original state.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
     """
@@ -41,7 +42,7 @@ def reset_mesh(window: QMainWindow) -> None:
     window._current_mesh = window._original_mesh.copy()
     if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
         window.mesh_actor = window.visualizer.add_mesh(
-            window._current_mesh, name="mesh_actor", 
+            window._current_mesh, name="mesh_actor",
             scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
         )
     else:
@@ -54,7 +55,7 @@ def reset_mesh(window: QMainWindow) -> None:
 
 def enable_delete_tool(window: QMainWindow) -> None:
     """Enable interactive box selection for mesh deletion.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
     """
@@ -62,6 +63,7 @@ def enable_delete_tool(window: QMainWindow) -> None:
     window._original_mesh = mesh_polydata.copy()
     window._current_mesh = mesh_polydata.copy()
     # Callback for box widget
+
     def box_callback(box: pv.Box) -> None:
         """Callback function for the box widget.
 
@@ -78,6 +80,7 @@ def enable_delete_tool(window: QMainWindow) -> None:
         color='red'
     )
     # Key press handler
+
     def key_press_callback(interactor, event: object) -> None:
         """Callback function for key press events during box selection.
 
@@ -93,7 +96,8 @@ def enable_delete_tool(window: QMainWindow) -> None:
     # Attach key observer
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._delete_iren = iren
-    window._delete_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
+    window._delete_key_observer_tag = iren.AddObserver(
+        "KeyPressEvent", key_press_callback)
     window.instructions_text_actor = window.visualizer.add_text(
         "Rotate the box to align with the mesh.\n"
         "Press 'Return' to delete the region inside the box.\n"
@@ -107,13 +111,14 @@ def enable_delete_tool(window: QMainWindow) -> None:
 
 def disable_delete_tool(window: QMainWindow) -> None:
     """Disable the box selection tool and apply the deletion result.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
     """
     # Clear the texts
     if hasattr(window, 'instructions_text_actor'):
-        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        window.visualizer.remove_actor(
+            window.instructions_text_actor, reset_camera=False)
         del window.instructions_text_actor
     # Clean internal variables
     if hasattr(window, '_box_widget'):
@@ -129,7 +134,7 @@ def disable_delete_tool(window: QMainWindow) -> None:
     if window._current_mesh.n_points > 0:
         if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
             window.mesh_actor = window.visualizer.add_mesh(
-                window._current_mesh.copy(), name="mesh_actor", 
+                window._current_mesh.copy(), name="mesh_actor",
                 scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
             )
         else:

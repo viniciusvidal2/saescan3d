@@ -8,6 +8,7 @@ from modules.obj_transformer import OBJTransformer
 
 # region read sfm
 
+
 def convert_to_degrees(value: str, ref: str) -> float:
     """Converts GPS coordinates to degrees.
 
@@ -39,10 +40,10 @@ def read_sfm_file(sfm_path: str) -> tuple:
         sfm_data = json.load(f)
     # Define the rotation matrix to fix the coordinate system
     R_fix = np.array([
-            [1,  0,  0],
-            [0, -1,  0],
-            [0,  0, -1]
-        ], dtype=np.float64)
+        [1,  0,  0],
+        [0, -1,  0],
+        [0,  0, -1]
+    ], dtype=np.float64)
     # Extract GPS and camera points
     gps_points = []
     camera_points = []
@@ -68,7 +69,8 @@ def read_sfm_file(sfm_path: str) -> tuple:
         pose = poses[pose_id]
         transform = pose["pose"]["transform"]
         center = np.array([float(x) for x in transform["center"]])
-        rotation = np.array([float(x) for x in transform.get("rotation", None)])
+        rotation = np.array([float(x)
+                            for x in transform.get("rotation", None)])
         rotation = rotation.reshape((3, 3))
         position = R_fix @ center
         # Use center and if quaternion is not provided, use rotation matrix
@@ -81,6 +83,7 @@ def read_sfm_file(sfm_path: str) -> tuple:
 
 # endregion
 # region transform compute
+
 
 def compute_similarity_transform(pts_src: np.ndarray, pts_tgt: np.ndarray) -> Tuple[float, np.ndarray, np.ndarray]:
     """Computes the optimal similarity transformation (rotation, translation, scale).
@@ -130,6 +133,7 @@ def compute_transformation_from_sfm(sfm_path: str) -> tuple:
 
 # endregion
 # region transform_save
+
 
 def transform_save_ptc(filename: str, scale: float, rotation: np.ndarray, t: np.ndarray) -> None:
     """Reads a mesh or point cloud, applies the transformation, and saves it back.
@@ -182,6 +186,7 @@ def transform_save_obj(obj_path: str, mtl_path: str, scale: float, rotation: np.
 # endregion
 # region cameras
 
+
 def get_camera_poses_utm_frame(sfm_path: str, scale: float, rotation: np.ndarray, t: np.ndarray) -> dict:
     """Reads camera poses and correspondent GPS info from SFM file.
 
@@ -199,7 +204,8 @@ def get_camera_poses_utm_frame(sfm_path: str, scale: float, rotation: np.ndarray
     # Transform the camera poses
     for pose_id, pose in camera_poses.items():
         position = pose["position"]
-        transformed_position = (scale * (rotation @ position.T).T + t).astype(np.float64)
+        transformed_position = (
+            scale * (rotation @ position.T).T + t).astype(np.float64)
         transformed_orientation = rotation @ pose["orientation"]
         camera_poses[pose_id]["position"] = transformed_position
         camera_poses[pose_id]["orientation"] = transformed_orientation
@@ -207,6 +213,7 @@ def get_camera_poses_utm_frame(sfm_path: str, scale: float, rotation: np.ndarray
 
 # endregion
 # region main
+
 
 if __name__ == "__main__":
     # Example usage
@@ -216,16 +223,20 @@ if __name__ == "__main__":
     mtl_path = "D:\\datasets_sfm\\balsa-small\\out\\Texturing\\texturedMesh.mtl"
     print("Please provide the paths to the SFM file, point cloud file, and OBJ file.")
     # Compute the transformation
-    scale, rotation, translation = compute_transformation_from_sfm(sfm_path=sfm_path)
+    scale, rotation, translation = compute_transformation_from_sfm(
+        sfm_path=sfm_path)
     print(f"Scale: {scale}")
     print(f"Rotation: {rotation}")
     print(f"Translation: {translation}")
     # Transform and save the point cloud
-    transform_save_ptc(filename=cloud_path, scale=scale, rotation=rotation, t=translation)
+    transform_save_ptc(filename=cloud_path, scale=scale,
+                       rotation=rotation, t=translation)
     # Transform and save the OBJ file
-    transform_save_obj(obj_path=obj_path, mtl_path=mtl_path, scale=scale, rotation=rotation, t=translation)
+    transform_save_obj(obj_path=obj_path, mtl_path=mtl_path,
+                       scale=scale, rotation=rotation, t=translation)
     # Get camera poses in UTM frame
-    camera_poses = get_camera_poses_utm_frame(sfm_path=sfm_path, scale=scale, rotation=rotation, t=translation)
+    camera_poses = get_camera_poses_utm_frame(
+        sfm_path=sfm_path, scale=scale, rotation=rotation, t=translation)
     # Save camera poses to a file
     with open("camera_poses_utm.json", "w") as f:
         json.dump(camera_poses, f, indent=4)

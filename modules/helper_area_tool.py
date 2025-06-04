@@ -11,14 +11,16 @@ def add_area_marker(window: QMainWindow, point: np.ndarray) -> None:
         point (np.ndarray): The point we picked
     """
     # Add a sphere marker at the selected point
-    sphere = pv.Sphere(radius=0.5, center=point, theta_resolution=64, phi_resolution=64)
-    actor = window.visualizer.add_mesh(sphere, color='green', reset_camera=False)
+    sphere = pv.Sphere(radius=0.5, center=point,
+                       theta_resolution=64, phi_resolution=64)
+    actor = window.visualizer.add_mesh(
+        sphere, color='green', reset_camera=False)
     window.polygon_points.append((point, actor))
 
 
 def draw_polygon_and_compute_area(window: QMainWindow) -> None:
     """Draws polygon from selected points and computes surface area.
-    
+
     Args:
         window (QMainWindow): The window with the visualizer to draw to
     """
@@ -31,12 +33,14 @@ def draw_polygon_and_compute_area(window: QMainWindow) -> None:
         poly_points = np.vstack([poly_points, poly_points[0]])
     # Create PolyData of polygon
     polygon = pv.PolyData(poly_points)
-    polygon["scalars"] = np.arange(len(poly_points))  # Dummy scalar for visualization
+    # Dummy scalar for visualization
+    polygon["scalars"] = np.arange(len(poly_points))
     # Make a surface and mask original mesh using polygon
     surf = polygon.delaunay_2d()
     surf.clean(inplace=True)
     mesh_polydata = pv.wrap(window.mesh_actor.GetMapper().GetInput())
-    extracted = mesh_polydata.extract_surface().select_enclosed_points(surf, check_surface=False)
+    extracted = mesh_polydata.extract_surface(
+    ).select_enclosed_points(surf, check_surface=False)
     inside = extracted.threshold(0.5, scalars="SelectedPoints")
     # Try to calculate area
     if inside.n_cells > 0:
@@ -49,7 +53,8 @@ def draw_polygon_and_compute_area(window: QMainWindow) -> None:
         )
         window.log_output(f"Polygon AREA: {area:.3f} square meters")
         # Add extracted surface
-        window._area_surface_actor = window.visualizer.add_mesh(inside, color='orange', opacity=0.9, reset_camera=False)
+        window._area_surface_actor = window.visualizer.add_mesh(
+            inside, color='orange', opacity=0.9, reset_camera=False)
         window.visualizer.render()
     else:
         window.log_output("No intersecting surface found with the polygon.")
@@ -57,7 +62,7 @@ def draw_polygon_and_compute_area(window: QMainWindow) -> None:
 
 def clear_polygon_selection(window: QMainWindow) -> None:
     """Clears all polygon points and any displayed area.
-    
+
     Args:
         window (QMainWindow): The window with the visualizer to draw to
     """
@@ -82,6 +87,7 @@ def enable_area_tool(window: QMainWindow) -> None:
     window._mesh_actor_polydata_backup = window.mesh_actor.GetMapper().GetInput().copy()
     window.polygon_points = []
     # Define the callback for right-clicking on the mesh
+
     def right_click_callback(point: np.ndarray, picker: object) -> None:
         """Callback for right-clicking on the mesh to select points.
 
@@ -95,6 +101,7 @@ def enable_area_tool(window: QMainWindow) -> None:
         selected_point = window._mesh_actor_polydata_backup.points[point_id]
         add_area_marker(window, selected_point)
     # Define the callback for key presses
+
     def key_press_callback(interactor: object, event: object) -> None:
         """Callback for key press events to handle Enter and Escape keys.
 
@@ -118,7 +125,8 @@ def enable_area_tool(window: QMainWindow) -> None:
     # Set up key press observer
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._area_iren = iren
-    window._area_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
+    window._area_key_observer_tag = iren.AddObserver(
+        "KeyPressEvent", key_press_callback)
     window.instructions_text_actor = window.visualizer.add_text(
         "Right-click to select points for polygon.\n"
         "Press Enter to compute area of the polygon.\n"
@@ -132,16 +140,18 @@ def enable_area_tool(window: QMainWindow) -> None:
 
 def disable_area_tool(window: QMainWindow) -> None:
     """Disables polygon selection and removes any observers and visuals.
-    
+
     Args:
         window (QMainWindow): The window with the visualizer to draw to
     """
     # Clear the texts
     if hasattr(window, 'instructions_text_actor'):
-        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        window.visualizer.remove_actor(
+            window.instructions_text_actor, reset_camera=False)
         del window.instructions_text_actor
     if hasattr(window, 'area_text_actor'):
-        window.visualizer.remove_actor(window.area_text_actor, reset_camera=False)
+        window.visualizer.remove_actor(
+            window.area_text_actor, reset_camera=False)
         del window.area_text_actor
     # Disable point picking and remove observers
     window.visualizer.disable_picking()

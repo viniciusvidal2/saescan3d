@@ -1,6 +1,6 @@
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QSplashScreen, QTextEdit,
-    QHBoxLayout, QVBoxLayout, QLabel, QWidget, QFileDialog, QSplitter, 
+    QHBoxLayout, QVBoxLayout, QLabel, QWidget, QFileDialog, QSplitter,
     QLineEdit, QRadioButton, QButtonGroup
 )
 from PySide6.QtGui import (
@@ -44,7 +44,8 @@ class SmartmodelWindow(QMainWindow):
         super().__init__()
         # Title, icons, and position/sizes
         self.setWindowTitle("Model Visualizer")
-        self.setWindowIcon(QPixmap(get_file_placement_path("resources/smartmodel.ico")))
+        self.setWindowIcon(
+            QPixmap(get_file_placement_path("resources/smartmodel.ico")))
         # Center the window on the screen
         screen = QGuiApplication.primaryScreen()
         screen_geometry = screen.geometry()
@@ -107,11 +108,12 @@ class SmartmodelWindow(QMainWindow):
         self.scene_center = None
         # Flag to control the level of what is loaded in the project
         self.project_mesh_level = None  # ["ptc", "mesh", "texture"]
-        
+
     def setup_background(self) -> None:
         """Set up the background image for the main window.
         """
-        self.background = QPixmap(get_file_placement_path("resources/background.png"))
+        self.background = QPixmap(
+            get_file_placement_path("resources/background.png"))
         palette = QPalette()
         palette.setBrush(QPalette.Window, QBrush(self.background.scaled(
             self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)))
@@ -131,7 +133,8 @@ class SmartmodelWindow(QMainWindow):
         self.input_file_text_edit.setPlaceholderText(
             "Path to the input file (PLY or OBJ).")
         self.input_file_browse_btn = QPushButton("Browse")
-        self.input_file_browse_btn.clicked.connect(self.input_file_browse_btn_callback)
+        self.input_file_browse_btn.clicked.connect(
+            self.input_file_browse_btn_callback)
         self.mesh_ptc_btn = QPushButton("Mesh the Point Cloud!")
         self.mesh_ptc_btn.setEnabled(False)
         self.mesh_ptc_btn.setVisible(False)
@@ -154,42 +157,49 @@ class SmartmodelWindow(QMainWindow):
         self.vis_btn_layout.setSpacing(2)
         self.vis_btn_layout.setContentsMargins(0, 0, 0, 0)
         self.distance_tool_btn = QPushButton()
-        self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceOFF.ico")))
+        self.distance_tool_btn.setIcon(
+            QIcon(get_file_placement_path("resources/distanceOFF.ico")))
         self.distance_tool_btn.setToolTip("Calculate distance between points")
         self.distance_tool_btn.setEnabled(False)
         self.distance_tool_btn.setCheckable(True)
         self.distance_tool_btn.setChecked(False)
         self.distance_tool_btn.clicked.connect(self.distance_tool_btn_callback)
         self.area_tool_btn = QPushButton()
-        self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaOFF.ico")))
+        self.area_tool_btn.setIcon(
+            QIcon(get_file_placement_path("resources/areaOFF.ico")))
         self.area_tool_btn.setToolTip("Calculate area of interest")
         self.area_tool_btn.setEnabled(False)
         self.area_tool_btn.setCheckable(True)
         self.area_tool_btn.setChecked(False)
         self.area_tool_btn.clicked.connect(self.area_tool_btn_callback)
         self.volume_tool_btn = QPushButton()
-        self.volume_tool_btn.setIcon(QIcon(get_file_placement_path("resources/volumeOFF.ico")))
+        self.volume_tool_btn.setIcon(
+            QIcon(get_file_placement_path("resources/volumeOFF.ico")))
         self.volume_tool_btn.setToolTip("Calculate mesh volume")
         self.volume_tool_btn.setEnabled(False)
         self.volume_tool_btn.setCheckable(True)
         self.volume_tool_btn.setChecked(False)
         self.volume_tool_btn.clicked.connect(self.volume_tool_btn_callback)
         self.delete_tool_btn = QPushButton()
-        self.delete_tool_btn.setIcon(QIcon(get_file_placement_path("resources/deletePointsOFF.ico")))
+        self.delete_tool_btn.setIcon(
+            QIcon(get_file_placement_path("resources/deletePointsOFF.ico")))
         self.delete_tool_btn.setToolTip("Delete selected points")
         self.delete_tool_btn.setEnabled(False)
         self.delete_tool_btn.setCheckable(True)
         self.delete_tool_btn.setChecked(False)
         self.delete_tool_btn.clicked.connect(self.delete_tool_btn_callback)
         self.elevation_tool_btn = QPushButton()
-        self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationOFF.ico")))
+        self.elevation_tool_btn.setIcon(
+            QIcon(get_file_placement_path("resources/elevationOFF.ico")))
         self.elevation_tool_btn.setToolTip("Elevation tool")
         self.elevation_tool_btn.setEnabled(False)
         self.elevation_tool_btn.setCheckable(True)
         self.elevation_tool_btn.setChecked(False)
-        self.elevation_tool_btn.clicked.connect(self.elevation_tool_btn_callback)
+        self.elevation_tool_btn.clicked.connect(
+            self.elevation_tool_btn_callback)
         self.smooth_tool_btn = QPushButton()
-        self.smooth_tool_btn.setIcon(QIcon(get_file_placement_path("resources/smoothOFF.ico")))
+        self.smooth_tool_btn.setIcon(
+            QIcon(get_file_placement_path("resources/smoothOFF.ico")))
         self.smooth_tool_btn.setToolTip("Smooth the mesh")
         self.smooth_tool_btn.setEnabled(False)
         self.smooth_tool_btn.setCheckable(True)
@@ -202,7 +212,7 @@ class SmartmodelWindow(QMainWindow):
         self.vis_btn_layout.addWidget(self.elevation_tool_btn)
         self.vis_btn_layout.addWidget(self.smooth_tool_btn)
         self.visualizer_tools_btns = [
-            self.distance_tool_btn, self.area_tool_btn, self.volume_tool_btn, 
+            self.distance_tool_btn, self.area_tool_btn, self.volume_tool_btn,
             self.delete_tool_btn, self.elevation_tool_btn, self.smooth_tool_btn
         ]
         # Pyvista visualizer
@@ -296,13 +306,14 @@ class SmartmodelWindow(QMainWindow):
             # Do the proper processing according to the file type
             if file_path.endswith(".ply"):
                 # We must create a mesh from the point cloud
-                self.log_output("PLY file selected. Click 'Mesh the Point Cloud!' to process it and create a mesh.")
+                self.log_output(
+                    "PLY file selected. Click 'Mesh the Point Cloud!' to process it and create a mesh.")
                 self.mesh_ptc_btn.setVisible(True)
                 self.mesh_ptc_btn.setEnabled(True)
                 self.ply_file_path = file_path
                 ptc_polydata = read_pyvista_cloud(self.ply_file_path)
-                self.mesh_actor = self.visualizer.add_mesh(ptc_polydata, name="mesh_actor", 
-                                                          scalars=ptc_polydata.point_data["RGB"], rgb=True)
+                self.mesh_actor = self.visualizer.add_mesh(ptc_polydata, name="mesh_actor",
+                                                           scalars=ptc_polydata.point_data["RGB"], rgb=True)
                 self.prepare_actors_for_visualization()
                 # Call enable buttons, but only for tools that should not work and need a mesh
                 self.project_mesh_level = "ptc"
@@ -312,16 +323,21 @@ class SmartmodelWindow(QMainWindow):
                 self.mesh_ptc_btn.setVisible(False)
                 self.mesh_ptc_btn.setEnabled(False)
                 # We must load the mesh from the OBJ file and its MTL file
-                self.log_output("OBJ file selected. Reading the materials in the file directory...")
+                self.log_output(
+                    "OBJ file selected. Reading the materials in the file directory...")
                 self.obj_file_path = file_path
                 self.mtl_file_path = file_path.replace(".obj", ".mtl")
                 if not os.path.exists(self.mtl_file_path):
-                    self.log_output("No MTL file found. Please ensure the OBJ file has a corresponding MTL file.")
-                    self.log_output("Process wont run until the MTL file is found.")
+                    self.log_output(
+                        "No MTL file found. Please ensure the OBJ file has a corresponding MTL file.")
+                    self.log_output(
+                        "Process wont run until the MTL file is found.")
                 else:
                     # Load the mesh with texture in a separate thread so it does not block the window with big meshes
-                    self.log_output("MTL file found. Loading the mesh with texture. It will show up in the visualizer once it is loaded.")
-                    self.log_output("It can take some time depending on the mesh size, please wait...")
+                    self.log_output(
+                        "MTL file found. Loading the mesh with texture. It will show up in the visualizer once it is loaded.")
+                    self.log_output(
+                        "It can take some time depending on the mesh size, please wait...")
                     self.thread = QThread()
                     self.worker = WorkerObj(self.obj_file_path)
                     self.worker.moveToThread(self.thread)
@@ -342,12 +358,13 @@ class SmartmodelWindow(QMainWindow):
             mesh_texture (pv.Texture): The loaded mesh texture.
         """
         self.mesh_texture = mesh_texture
-        self.mesh_actor = self.visualizer.add_mesh(mesh_actor, name="mesh_actor", texture=self.mesh_texture)
+        self.mesh_actor = self.visualizer.add_mesh(
+            mesh_actor, name="mesh_actor", texture=self.mesh_texture)
         self.prepare_actors_for_visualization()
         self.log_output("Mesh loaded successfully.")
         self.project_mesh_level = "texture"
         self.enable_buttons()
-                    
+
     def mesh_ptc_btn_callback(self) -> None:
         """Callback for the mesh point cloud button.
         """
@@ -361,7 +378,7 @@ class SmartmodelWindow(QMainWindow):
         ptc_polydata = self.mesh_actor.GetMapper().GetInput()
         mesh_polydata = ptc_polydata.delaunay_2d()
         # Update the mesh in the visualizer
-        self.mesh_actor = self.visualizer.add_mesh(mesh_polydata, name="mesh_actor", 
+        self.mesh_actor = self.visualizer.add_mesh(mesh_polydata, name="mesh_actor",
                                                    scalars=mesh_polydata.point_data["RGB"], rgb=True, reset_camera=False)
         self.log_output("Mesh created successfully.")
         # Update project flag
@@ -385,17 +402,19 @@ class SmartmodelWindow(QMainWindow):
         self.log_output(self.log_splitter)
         self.log_output("Downloading meshes...")
         if self.ptc_actor is None and self.mesh_actor is None:
-            self.log_output("No meshes to download. Please load a point cloud or mesh first.")
+            self.log_output(
+                "No meshes to download. Please load a point cloud or mesh first.")
             self.enable_buttons()
             return
         # Get the folder to download the meshes to
         download_folder = QFileDialog.getExistingDirectory(self, "Select Download Folder",
-                                                              options=QFileDialog.ShowDirsOnly)
+                                                           options=QFileDialog.ShowDirsOnly)
         if not download_folder:
             self.log_output("No folder selected. Download cancelled.")
             self.enable_buttons()
             return
-        self.log_output(f"Current mesh will be downloaded to: {download_folder}")
+        self.log_output(
+            f"Current mesh will be downloaded to: {download_folder}")
         # Build file path according to output format
         resolution = 1.0  # Default resolution for GeoTIFF
         utm_zone = "23"  # Default UTM zone
@@ -411,7 +430,8 @@ class SmartmodelWindow(QMainWindow):
             output_file_format = "tif"
             resolution = float(self.resolution_line_edit.text())
             utm_zone = self.utm_zone_line_edit.text()
-        output_file_path = os.path.join(download_folder, "pointCloud." + output_file_format)
+        output_file_path = os.path.join(
+            download_folder, "pointCloud." + output_file_format)
         # Make sure we have the UTM values involved before saving
         if not self.scene_center:
             self.prepare_actors_for_visualization()
@@ -421,7 +441,8 @@ class SmartmodelWindow(QMainWindow):
                               resolution=resolution, utm_zone=utm_zone):
             self.log_output(f"Point cloud saved to: {output_file_path}")
         else:
-            self.log_output("Failed to save the point cloud. Please check the file path and format.")
+            self.log_output(
+                "Failed to save the point cloud. Please check the file path and format.")
         self.enable_buttons()
 
     def toggle_save_options(self) -> None:
@@ -432,7 +453,7 @@ class SmartmodelWindow(QMainWindow):
         if hasattr(self, 'geotiff_options_layout'):
             right_layout.removeItem(self.geotiff_options_layout)
             for widget in (self.resolution_label, self.resolution_line_edit,
-                        self.utm_zone_label, self.utm_zone_line_edit):
+                           self.utm_zone_label, self.utm_zone_line_edit):
                 right_layout.removeWidget(widget)
                 widget.deleteLater()
             self.geotiff_options_layout.deleteLater()
@@ -459,7 +480,7 @@ class SmartmodelWindow(QMainWindow):
             self.utm_zone_label = QLabel("UTM Zone:")
             self.utm_zone_line_edit = QLineEdit("23")
             for widget in (self.resolution_label, self.resolution_line_edit,
-                        self.utm_zone_label, self.utm_zone_line_edit):
+                           self.utm_zone_label, self.utm_zone_line_edit):
                 self.geotiff_options_layout.addWidget(widget)
             right_layout.addLayout(self.geotiff_options_layout)
         elif self.radio_las.isChecked():
@@ -480,12 +501,14 @@ class SmartmodelWindow(QMainWindow):
         self.log_output(self.log_splitter)
         if self.distance_tool_btn.isChecked():
             self.log_output("Distance tool activated.")
-            self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceON.ico")))
+            self.distance_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/distanceON.ico")))
             self.disable_other_tools(self.distance_tool_btn)
             enable_distance_tool(self)
         else:
             self.log_output("Distance tool deactivated.")
-            self.distance_tool_btn.setIcon(QIcon(get_file_placement_path("resources/distanceOFF.ico")))
+            self.distance_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/distanceOFF.ico")))
             disable_distance_tool(self)
             self.enable_buttons()
 
@@ -495,12 +518,14 @@ class SmartmodelWindow(QMainWindow):
         self.log_output(self.log_splitter)
         if self.area_tool_btn.isChecked():
             self.log_output("Area tool activated.")
-            self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaON.ico")))
+            self.area_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/areaON.ico")))
             self.disable_other_tools(self.area_tool_btn)
             enable_area_tool(self)
         else:
             self.log_output("Area tool deactivated.")
-            self.area_tool_btn.setIcon(QIcon(get_file_placement_path("resources/areaOFF.ico")))
+            self.area_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/areaOFF.ico")))
             disable_area_tool(self)
             self.enable_buttons()
 
@@ -510,12 +535,14 @@ class SmartmodelWindow(QMainWindow):
         self.log_output(self.log_splitter)
         if self.volume_tool_btn.isChecked():
             self.log_output("Volume tool activated.")
-            self.volume_tool_btn.setIcon(QIcon(get_file_placement_path("resources/volumeON.ico")))
+            self.volume_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/volumeON.ico")))
             self.disable_other_tools(self.volume_tool_btn)
             enable_volume_tool(self)
         else:
             self.log_output("Volume tool deactivated.")
-            self.volume_tool_btn.setIcon(QIcon(get_file_placement_path("resources/volumeOFF.ico")))
+            self.volume_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/volumeOFF.ico")))
             disable_volume_tool(self)
             self.enable_buttons()
 
@@ -525,12 +552,14 @@ class SmartmodelWindow(QMainWindow):
         self.log_output(self.log_splitter)
         if self.delete_tool_btn.isChecked():
             self.log_output("Delete tool activated.")
-            self.delete_tool_btn.setIcon(QIcon(get_file_placement_path("resources/deletePointsON.ico")))
+            self.delete_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/deletePointsON.ico")))
             self.disable_other_tools(self.delete_tool_btn)
             enable_delete_tool(self)
         else:
             self.log_output("Delete tool deactivated.")
-            self.delete_tool_btn.setIcon(QIcon(get_file_placement_path("resources/deletePointsOFF.ico")))
+            self.delete_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/deletePointsOFF.ico")))
             disable_delete_tool(self)
             self.enable_buttons()
 
@@ -540,12 +569,14 @@ class SmartmodelWindow(QMainWindow):
         self.log_output(self.log_splitter)
         if self.elevation_tool_btn.isChecked():
             self.log_output("Elevation tool activated.")
-            self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationON.ico")))
+            self.elevation_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/elevationON.ico")))
             self.disable_other_tools(self.elevation_tool_btn)
             enable_elevation_tool(self)
         else:
             self.log_output("Elevation tool deactivated.")
-            self.elevation_tool_btn.setIcon(QIcon(get_file_placement_path("resources/elevationOFF.ico")))
+            self.elevation_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/elevationOFF.ico")))
             disable_elevation_tool(self)
             self.enable_buttons()
 
@@ -555,12 +586,14 @@ class SmartmodelWindow(QMainWindow):
         self.log_output(self.log_splitter)
         if self.smooth_tool_btn.isChecked():
             self.log_output("Smooth tool activated.")
-            self.smooth_tool_btn.setIcon(QIcon(get_file_placement_path("resources/smoothON.ico")))
+            self.smooth_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/smoothON.ico")))
             self.disable_other_tools(self.smooth_tool_btn)
             enable_smooth_tool(self)
         else:
             self.log_output("Smooth tool deactivated.")
-            self.smooth_tool_btn.setIcon(QIcon(get_file_placement_path("resources/smoothOFF.ico")))
+            self.smooth_tool_btn.setIcon(
+                QIcon(get_file_placement_path("resources/smoothOFF.ico")))
             disable_smooth_tool(self)
             self.enable_buttons()
 
@@ -610,7 +643,7 @@ class SmartmodelWindow(QMainWindow):
         self.radio_las.setEnabled(False)
         self.radio_xyz.setEnabled(False)
         self.radio_geotiff.setEnabled(False)
-        
+
     def enable_buttons(self) -> None:
         """Enable the buttons in the processing section.
         """

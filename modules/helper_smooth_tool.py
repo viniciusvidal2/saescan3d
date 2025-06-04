@@ -4,17 +4,19 @@ import pyvista as pv
 
 def smooth_mesh_region(window: QMainWindow) -> None:
     """Smooths the mesh region inside the box.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
     """
     # Clip using the box widget polydata
-    mesh_to_smooth = window._current_mesh.clip_box(window._delete_box_polydata, invert=False).extract_surface()
-    mesh_to_keep = window._current_mesh.clip_box(window._delete_box_polydata, invert=True).extract_surface()
+    mesh_to_smooth = window._current_mesh.clip_box(
+        window._delete_box_polydata, invert=False).extract_surface()
+    mesh_to_keep = window._current_mesh.clip_box(
+        window._delete_box_polydata, invert=True).extract_surface()
     # Apply taubin smoothing to the clipped mesh
     smoothed_mesh = mesh_to_smooth.smooth_taubin(
-        n_iter=window._smooth_params['n_iter'],  
-        pass_band=window._smooth_params['pass_band'], 
+        n_iter=window._smooth_params['n_iter'],
+        pass_band=window._smooth_params['pass_band'],
         normalize_coordinates=True
     )
     # Combine the smoothed mesh with the rest of the mesh
@@ -25,7 +27,7 @@ def smooth_mesh_region(window: QMainWindow) -> None:
     window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
     if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
         window.mesh_actor = window.visualizer.add_mesh(
-            window._current_mesh, name="mesh_actor", 
+            window._current_mesh, name="mesh_actor",
             scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
         )
     else:
@@ -37,7 +39,7 @@ def smooth_mesh_region(window: QMainWindow) -> None:
 
 def reset_mesh(window: QMainWindow) -> None:
     """Resets the mesh to its original state.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
     """
@@ -46,7 +48,7 @@ def reset_mesh(window: QMainWindow) -> None:
     window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
     if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
         window.mesh_actor = window.visualizer.add_mesh(
-            window._current_mesh, name="mesh_actor", 
+            window._current_mesh, name="mesh_actor",
             scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
         )
     else:
@@ -59,13 +61,14 @@ def reset_mesh(window: QMainWindow) -> None:
 
 def enable_smooth_tool(window: QMainWindow) -> None:
     """Enable interactive box selection for mesh smooth.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
     """
     window._original_mesh = window.mesh_actor.GetMapper().GetInput().copy()
     window._current_mesh = window._original_mesh.copy()
     # Callback for box widget
+
     def box_callback(box: pv.Box) -> None:
         """Callback function for the box widget.
 
@@ -82,6 +85,7 @@ def enable_smooth_tool(window: QMainWindow) -> None:
         color='red'
     )
     # Key press handler
+
     def key_press_callback(interactor, event: object) -> None:
         """Callback function for key press events during box selection.
 
@@ -97,7 +101,8 @@ def enable_smooth_tool(window: QMainWindow) -> None:
     # Attach key observer and instructions
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._smooth_iren = iren
-    window._smooth_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
+    window._smooth_key_observer_tag = iren.AddObserver(
+        "KeyPressEvent", key_press_callback)
     window.instructions_text_actor = window.visualizer.add_text(
         "Press 'Return' to smooth the mesh inside the box.\n"
         "Press 'R' to reset the mesh to its original state.\n"
@@ -113,7 +118,8 @@ def enable_smooth_tool(window: QMainWindow) -> None:
         'pass_band': 0.1,  # Pass band for smoothing
     }
     window.visualizer.add_slider_widget(
-        callback=lambda value: window._smooth_params.__setitem__('pass_band', float(value)),
+        callback=lambda value: window._smooth_params.__setitem__(
+            'pass_band', float(value)),
         value=0.1,
         rng=[0.02, 0.9],
         title="Pass Band Parameter",
@@ -122,7 +128,8 @@ def enable_smooth_tool(window: QMainWindow) -> None:
         style='modern'
     )
     window.visualizer.add_slider_widget(
-        callback=lambda value: window._smooth_params.__setitem__('n_iter', int(value)),
+        callback=lambda value: window._smooth_params.__setitem__(
+            'n_iter', int(value)),
         value=20,
         rng=[1, 100],
         title="Number of Iterations",
@@ -134,13 +141,14 @@ def enable_smooth_tool(window: QMainWindow) -> None:
 
 def disable_smooth_tool(window: QMainWindow) -> None:
     """Disable the box selection tool and apply the smooth result.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
     """
     # Clear the texts
     if hasattr(window, 'instructions_text_actor'):
-        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        window.visualizer.remove_actor(
+            window.instructions_text_actor, reset_camera=False)
         del window.instructions_text_actor
     # Clean internal variables
     if hasattr(window, '_box_widget'):

@@ -22,7 +22,8 @@ class Saescan3dWindow(QMainWindow):
         super().__init__()
         # Title, icons, and position/sizes
         self.setWindowTitle("SAEScan3D")
-        self.setWindowIcon(QPixmap(get_file_placement_path("resources/saescan3d.ico")))
+        self.setWindowIcon(
+            QPixmap(get_file_placement_path("resources/saescan3d.ico")))
         # Center the window on the screen
         screen = QGuiApplication.primaryScreen()
         screen_geometry = screen.geometry()
@@ -74,11 +75,12 @@ class Saescan3dWindow(QMainWindow):
         self.mesh_texture = None
         # Number of images to process, to see if we can run the SFM
         self.num_images = 0
-        
+
     def setup_background(self) -> None:
         """Set up the background image for the main window.
         """
-        self.background = QPixmap(get_file_placement_path("resources/background.png"))
+        self.background = QPixmap(
+            get_file_placement_path("resources/background.png"))
         palette = QPalette()
         palette.setBrush(QPalette.Window, QBrush(self.background.scaled(
             self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)))
@@ -110,7 +112,8 @@ class Saescan3dWindow(QMainWindow):
         self.sfm_output_text_edit.setPlaceholderText(
             "Path to the folder where the output will be saved.")
         self.sfm_output_browse_btn = QPushButton("Browse")
-        self.sfm_output_browse_btn.clicked.connect(self.sfm_output_browse_btn_callback)
+        self.sfm_output_browse_btn.clicked.connect(
+            self.sfm_output_browse_btn_callback)
         sfm_output_layout.addWidget(sfm_output_label)
         sfm_output_layout.addWidget(self.sfm_output_text_edit)
         sfm_output_layout.addWidget(self.sfm_output_browse_btn)
@@ -246,10 +249,12 @@ class Saescan3dWindow(QMainWindow):
             self.worker_sfm.set_output_folder(folder)
             # If there is already point cloud data in the folder, log it
             if os.path.exists(os.path.join(folder, "pointCloud.ply")):
-                self.log_output("Point cloud data already exists in the project folder.")
+                self.log_output(
+                    "Point cloud data already exists in the project folder.")
             # If there is already a mesh in the folder, log it
             if os.path.exists(os.path.join(folder, "Texturing", "texturedMesh.obj")):
-                self.log_output("Mesh data already exists in the project folder.")
+                self.log_output(
+                    "Mesh data already exists in the project folder.")
         else:
             self.log_output("No folder selected.")
         self.enable_buttons()
@@ -263,7 +268,8 @@ class Saescan3dWindow(QMainWindow):
             self.log_output("Input images folder or project folder not set.")
             return
         if self.num_images < 2:
-            self.log_output("Not enough images to run the SfM process. At least 2 images are required.")
+            self.log_output(
+                "Not enough images to run the SfM process. At least 2 images are required.")
             return
         self.disable_buttons()
         # Set the input and output folders in the worker
@@ -273,7 +279,7 @@ class Saescan3dWindow(QMainWindow):
         self.worker_sfm.set_pipeline("full")
         # Run the SFM process in a separate thread
         QTimer.singleShot(0, self.worker_sfm.run_pipeline_signal.emit)
-    
+
     def ptc_vis_btn_callback(self) -> None:
         """Callback for the point cloud visualization button.
         """
@@ -316,8 +322,10 @@ class Saescan3dWindow(QMainWindow):
             self.ptc_actor = None
         # Load the mesh with texture in a separate thread so it does not block the window with big meshes
         if not self.mesh_actor:
-            self.log_output("Loading the mesh with texture. It will show up in the visualizer once it is loaded.")
-            self.log_output("It can take some time depending on the mesh size, please wait...")
+            self.log_output(
+                "Loading the mesh with texture. It will show up in the visualizer once it is loaded.")
+            self.log_output(
+                "It can take some time depending on the mesh size, please wait...")
             self.thread_obj = QThread()
             self.worker_obj = WorkerObj(obj_path=obj_path)
             self.worker_obj.moveToThread(self.thread_obj)
@@ -328,11 +336,12 @@ class Saescan3dWindow(QMainWindow):
             self.thread_obj.finished.connect(self.thread_obj.deleteLater)
             self.thread_obj.start()
         else:
-            self.visualizer.add_mesh(self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
+            self.visualizer.add_mesh(
+                self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
             self.visualizer.reset_camera()
             self.visualizer.render()
             self.enable_buttons()
-    
+
     def _on_mesh_loaded(self, mesh_actor: pv.PolyData, mesh_texture: pv.Texture) -> None:
         """Callback for when the mesh is loaded.
         Args:
@@ -341,7 +350,8 @@ class Saescan3dWindow(QMainWindow):
         """
         self.mesh_actor = mesh_actor
         self.mesh_texture = mesh_texture
-        self.visualizer.add_mesh(self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
+        self.visualizer.add_mesh(
+            self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
         self.visualizer.reset_camera()
         self.visualizer.render()
         self.log_output("Mesh loaded successfully.")
@@ -366,7 +376,8 @@ class Saescan3dWindow(QMainWindow):
             self.log_output("Showing cameras...")
             self.camera_btn.setText("Hide Cameras")
             for cam in cameras.values():
-                self.camera_actors.append(self.visualizer.add_mesh(cam, color="red"))
+                self.camera_actors.append(
+                    self.visualizer.add_mesh(cam, color="red"))
             self.prepare_actors_for_visualization()
         else:
             # Remove the cameras by removing the actors
@@ -419,7 +430,7 @@ class Saescan3dWindow(QMainWindow):
         self.camera_btn.setEnabled(False)
         self.images_text_edit.setEnabled(False)
         self.sfm_output_text_edit.setEnabled(False)
-        
+
     def enable_buttons(self) -> None:
         """Enable the buttons in the processing section.
         """

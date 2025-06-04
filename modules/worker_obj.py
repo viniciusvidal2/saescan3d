@@ -27,10 +27,11 @@ class WorkerObj(QObject):
             tuple: A tuple containing the PyVista PolyData object and the texture.
         """
         # Load mesh with Trimesh
-        scene_or_mesh = trimesh.load(obj_path, force='scene')    
+        scene_or_mesh = trimesh.load(obj_path, force='scene')
         # If it’s a scene (multiple geometries), merge them
         if isinstance(scene_or_mesh, trimesh.Scene):
-            combined = trimesh.util.concatenate(tuple(scene_or_mesh.geometry.values()))
+            combined = trimesh.util.concatenate(
+                tuple(scene_or_mesh.geometry.values()))
         else:
             combined = scene_or_mesh
         # Get geometry data
@@ -55,7 +56,8 @@ class WorkerObj(QObject):
         """Run the worker thread to load the OBJ file and emit signals.
         """
         try:
-            mesh_actor, mesh_texture = self.load_textured_mesh(obj_path=self.obj_path)
+            mesh_actor, mesh_texture = self.load_textured_mesh(
+                obj_path=self.obj_path)
             self.finished.emit(mesh_actor, mesh_texture)
         except Exception as e:
             self.error.emit(str(e))

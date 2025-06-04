@@ -21,11 +21,14 @@ class MainWindow(QMainWindow):
         self.child_windows = []
         # Variables to control labels
         self.label_size = (300, 180)
-        self.saescan3d_label_path = get_file_placement_path("resources/saescan3d.png")
-        self.smartmodel_label_path = get_file_placement_path("resources/smartmodel.png")
+        self.saescan3d_label_path = get_file_placement_path(
+            "resources/saescan3d.png")
+        self.smartmodel_label_path = get_file_placement_path(
+            "resources/smartmodel.png")
         # Title, icons, and position/sizes
         self.setWindowTitle("SAEScan3D")
-        self.setWindowIcon(QPixmap(get_file_placement_path("resources/saescan3d.ico")))
+        self.setWindowIcon(
+            QPixmap(get_file_placement_path("resources/saescan3d.ico")))
         self.setFixedWidth(500)
         self.setFixedHeight(self.label_size[1])
         screen = QGuiApplication.primaryScreen()
@@ -54,7 +57,8 @@ class MainWindow(QMainWindow):
     def setup_background(self) -> None:
         """Set up the background image for the main window.
         """
-        self.background = QPixmap(get_file_placement_path("resources/background.png"))
+        self.background = QPixmap(
+            get_file_placement_path("resources/background.png"))
         palette = QPalette()
         palette.setBrush(QPalette.Window, QBrush(self.background.scaled(
             self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation)))

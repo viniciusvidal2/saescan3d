@@ -3,7 +3,7 @@ from PySide6.QtWidgets import QMainWindow
 
 def apply_elevation_colormap(window: QMainWindow, reference_z: float) -> None:
     """Applies viridis colormap based on Z elevation and shows scalar bar.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
         reference_z (float): The Z elevation value to slice at.
@@ -24,7 +24,8 @@ def apply_elevation_colormap(window: QMainWindow, reference_z: float) -> None:
         pass
     # Set the active scalars to Z Elevation
     if hasattr(window, "_elevation_mesh_actor"):
-        window.visualizer.remove_actor(window._elevation_mesh_actor, reset_camera=False)
+        window.visualizer.remove_actor(
+            window._elevation_mesh_actor, reset_camera=False)
     window._elevation_mesh_actor = window.visualizer.add_mesh(
         mesh_polydata,
         scalars='Z Elevation',
@@ -63,6 +64,7 @@ def enable_elevation_tool(window: QMainWindow) -> None:
     # Apply initial colormap and show scalar bar
     apply_elevation_colormap(window=window, reference_z=z_center)
     # Add draggable plane widget
+
     def widget_callback(*args) -> None:
         """Callback function for the elevation plane widget.
         """
@@ -72,7 +74,8 @@ def enable_elevation_tool(window: QMainWindow) -> None:
     window._elevation_plane_widget = window.visualizer.add_plane_widget(
         callback=widget_callback,
         normal=(0, 0, 1),
-        origin=((bounds[0] + bounds[1]) / 2, (bounds[2] + bounds[3]) / 2, z_center),
+        origin=((bounds[0] + bounds[1]) / 2,
+                (bounds[2] + bounds[3]) / 2, z_center),
         bounds=(bounds[0], bounds[1], bounds[2], bounds[3], z_min, z_max),
         factor=1.2,
         assign_to_axis="z",
@@ -90,13 +93,14 @@ def enable_elevation_tool(window: QMainWindow) -> None:
 
 def disable_elevation_tool(window: QMainWindow) -> None:
     """Disables the elevation slicing tool and cleans up.
-    
+
     Args:
         window (QMainWindow): The main window of the application.
     """
     # Clear the texts
     if hasattr(window, 'instructions_text_actor'):
-        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        window.visualizer.remove_actor(
+            window.instructions_text_actor, reset_camera=False)
         del window.instructions_text_actor
     # Remove the elevation plane widget
     if hasattr(window, "_elevation_plane_widget"):
@@ -104,7 +108,8 @@ def disable_elevation_tool(window: QMainWindow) -> None:
         del window._elevation_plane_widget
     # Remove the elevation mesh actor
     if hasattr(window, "_elevation_mesh_actor"):
-        window.visualizer.remove_actor(window._elevation_mesh_actor, reset_camera=False)
+        window.visualizer.remove_actor(
+            window._elevation_mesh_actor, reset_camera=False)
         del window._elevation_mesh_actor
     # Restore the original mesh actor
     if hasattr(window, "_main_actor_polydata_backup"):
