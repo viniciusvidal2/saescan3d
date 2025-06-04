@@ -55,7 +55,6 @@ def enable_elevation_tool(window: QMainWindow) -> None:
     """
     # Backup the original main actor and prepare view
     window._main_actor_polydata_backup = window.mesh_actor.GetMapper().GetInput().copy()
-    window.visualizer.remove_actor(window.mesh_actor, reset_camera=False)
     # Get the bounds of the mesh actor polydata
     bounds = window._main_actor_polydata_backup.bounds
     z_min, z_max = bounds[4], bounds[5]
@@ -64,7 +63,9 @@ def enable_elevation_tool(window: QMainWindow) -> None:
     # Apply initial colormap and show scalar bar
     apply_elevation_colormap(window=window, reference_z=z_center)
     # Add draggable plane widget
-    def widget_callback(*args):
+    def widget_callback(*args) -> None:
+        """Callback function for the elevation plane widget.
+        """
         if hasattr(window, "_elevation_plane_widget"):
             z = window._elevation_plane_widget.GetOrigin()[2]
             apply_elevation_colormap(window=window, reference_z=z)
@@ -77,7 +78,7 @@ def enable_elevation_tool(window: QMainWindow) -> None:
         assign_to_axis="z",
         outline_translation=False,
     )
-    window.visualizer.add_text(
+    window.instructions_text_actor = window.visualizer.add_text(
         "Drag the plane to slice the mesh by Z elevation.\n"
         "Use the slider to adjust the elevation level.\n",
         position='lower_left',
@@ -93,6 +94,10 @@ def disable_elevation_tool(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The main window of the application.
     """
+    # Clear the texts
+    if hasattr(window, 'instructions_text_actor'):
+        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        del window.instructions_text_actor
     # Remove the elevation plane widget
     if hasattr(window, "_elevation_plane_widget"):
         window._elevation_plane_widget.EnabledOff()
@@ -103,13 +108,6 @@ def disable_elevation_tool(window: QMainWindow) -> None:
         del window._elevation_mesh_actor
     # Restore the original mesh actor
     if hasattr(window, "_main_actor_polydata_backup"):
-        if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
-            window.mesh_actor = window.visualizer.add_mesh(window._main_actor_polydata_backup, name="mesh_actor", 
-                                                          scalars=window._main_actor_polydata_backup.point_data["RGB"], 
-                                                          rgb=True, reset_camera=False)
-        else:
-            window.mesh_actor = window.visualizer.add_mesh(window._main_actor_polydata_backup, name="mesh_actor", 
-                                                           texture=window.mesh_texture, reset_camera=False)
         del window._main_actor_polydata_backup
     # Remove the scalar bar
     try:

@@ -23,7 +23,7 @@ def perform_volume_clipping(window: QMainWindow) -> None:
     extruded_mesh = clipped_mesh.extrude_trim(direction=extrude_direction, trim_surface=extrude_plane, extrusion="boundary_edges")
     # Get the extruded mesh volume and add to the visualizer
     window.log_output(f"VOLUME of the extruded mesh: {extruded_mesh.volume:.2f} cubic meters.")
-    window.visualizer.add_text(
+    window.volume_text_actor = window.visualizer.add_text(
         f"Volume: {extruded_mesh.volume:.2f} cubic meters",
         position='upper_left',
         color='black',
@@ -136,7 +136,7 @@ def enable_volume_tool(window: QMainWindow) -> None:
     # Create the box widget with the specified bounds and callback
     window._volume_box_widget = window.visualizer.add_box_widget(
         callback=callback,
-        bounds=pv.wrap(window.mesh_actor.GetMapper().GetInput()).bounds,
+        bounds=window._mesh_actor_polydata_backup.bounds,
         rotation_enabled=True,
         color='black'
     )
@@ -155,7 +155,7 @@ def enable_volume_tool(window: QMainWindow) -> None:
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._delete_iren = iren
     window._delete_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
-    window.visualizer.add_text(
+    window.instructions_text_actor = window.visualizer.add_text(
         f"Rotate the box to align with the mesh.\n"
         f"The reference plane has an arrow and four spheres at the corners.\n"
         f"Press 'Return' to calculate the volume with respect to the reference plane.",
@@ -172,8 +172,13 @@ def disable_volume_tool(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The main window instance.
     """
-    # Clear the entire scene
-    window.visualizer.clear()
+    # Clear the texts
+    if hasattr(window, 'instructions_text_actor'):
+        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        del window.instructions_text_actor
+    if hasattr(window, 'volume_text_actor'):
+        window.visualizer.remove_actor(window.volume_text_actor, reset_camera=False)
+        del window.volume_text_actor
     # Remove the actors added by the volume calculation
     for actor_name in list(window.visualizer.actors.keys()):
         # Tool
@@ -199,14 +204,5 @@ def disable_volume_tool(window: QMainWindow) -> None:
         del window._delete_key_observer_tag
     # Re-add the original mesh to the visualizer
     if hasattr(window, '_mesh_actor_polydata_backup'):
-        if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
-            window.mesh_actor = window.visualizer.add_mesh(
-                window._mesh_actor_polydata_backup, name="mesh_actor", 
-                scalars=window._mesh_actor_polydata_backup.point_data["RGB"], rgb=True, reset_camera=False
-            )
-        else:
-            window.mesh_actor = window.visualizer.add_mesh(
-                window._mesh_actor_polydata_backup, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
-            )
         del window._mesh_actor_polydata_backup
     window.visualizer.render()

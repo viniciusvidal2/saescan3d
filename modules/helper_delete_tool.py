@@ -94,7 +94,7 @@ def enable_delete_tool(window: QMainWindow) -> None:
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._delete_iren = iren
     window._delete_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
-    window.visualizer.add_text(
+    window.instructions_text_actor = window.visualizer.add_text(
         "Rotate the box to align with the mesh.\n"
         "Press 'Return' to delete the region inside the box.\n"
         "Press 'R' to reset the mesh to its original state.",
@@ -111,8 +111,10 @@ def disable_delete_tool(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The main window of the application.
     """
-    # Clear the entire scene
-    window.visualizer.clear()
+    # Clear the texts
+    if hasattr(window, 'instructions_text_actor'):
+        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        del window.instructions_text_actor
     # Clean internal variables
     if hasattr(window, '_box_widget'):
         window.visualizer.clear_box_widgets()

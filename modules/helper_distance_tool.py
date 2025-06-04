@@ -28,7 +28,7 @@ def connect_and_print_distance(window: QMainWindow) -> None:
     window.line_actor = window.visualizer.add_mesh(line, color='red', line_width=4, reset_camera=False)
     # Calculate the distance between the two points
     distance = np.linalg.norm(np.array(p1) - np.array(p2))
-    window.visualizer.add_text(
+    window.distance_text_actor = window.visualizer.add_text(
         f"Distance: {distance:.2f} meters",
         position='upper_left',
         color='black',
@@ -102,7 +102,7 @@ def enable_distance_tool(window: QMainWindow) -> None:
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._iren = iren
     window._key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
-    window.visualizer.add_text(
+    window.instructions_text_actor = window.visualizer.add_text(
         "Right-click to select points for distance measurement.\n"
         "Press 'Escape' to clear the selection.\n"
         "After selecting two points, the distance will be displayed.",
@@ -119,8 +119,13 @@ def disable_distance_tool(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The main window instance.
     """
-    # Clear the entire scene
-    window.visualizer.clear()
+    # Clear the texts
+    if hasattr(window, 'instructions_text_actor'):
+        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        del window.instructions_text_actor
+    if hasattr(window, 'distance_text_actor'):
+        window.visualizer.remove_actor(window.distance_text_actor, reset_camera=False)
+        del window.distance_text_actor
     # Disable point picking and remove observers
     window.visualizer.disable_picking()
     if hasattr(window, '_iren') and hasattr(window, '_key_observer_tag'):
@@ -131,13 +136,4 @@ def disable_distance_tool(window: QMainWindow) -> None:
         clear_all_points(window)
     # Re-add the original mesh to the visualizer
     if hasattr(window, '_main_actor_polydata_backup'):
-        if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
-            window.mesh_actor = window.visualizer.add_mesh(
-                window._main_actor_polydata_backup, name="mesh_actor", 
-                scalars=window._main_actor_polydata_backup.point_data["RGB"], rgb=True, reset_camera=False
-            )
-        else:
-            window.mesh_actor = window.visualizer.add_mesh(
-                window._main_actor_polydata_backup, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
-            )
         del window._main_actor_polydata_backup

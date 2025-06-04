@@ -41,7 +41,7 @@ def draw_polygon_and_compute_area(window: QMainWindow) -> None:
     # Try to calculate area
     if inside.n_cells > 0:
         area = inside.area
-        window.visualizer.add_text(
+        window.area_text_actor = window.visualizer.add_text(
             f"Area: {area:.2f} square meters",
             position='upper_left',
             color='black',
@@ -83,14 +83,25 @@ def enable_area_tool(window: QMainWindow) -> None:
     window.polygon_points = []
     # Define the callback for right-clicking on the mesh
     def right_click_callback(point: np.ndarray, picker: object) -> None:
+        """Callback for right-clicking on the mesh to select points.
+
+        Args:
+            point (np.ndarray): The point where the right-click occurred.
+            picker (object): The picker object.
+        """
         if point is None or not isinstance(point, np.ndarray):
             return
-        mesh_polydata = pv.wrap(window.mesh_actor.GetMapper().GetInput())
-        point_id = mesh_polydata.find_closest_point(point)
-        selected_point = mesh_polydata.points[point_id]
+        point_id = window._mesh_actor_polydata_backup.find_closest_point(point)
+        selected_point = window._mesh_actor_polydata_backup.points[point_id]
         add_area_marker(window, selected_point)
     # Define the callback for key presses
     def key_press_callback(interactor: object, event: object) -> None:
+        """Callback for key press events to handle Enter and Escape keys.
+
+        Args:
+            interactor (object):  The interactor object.
+            event (object):  The event object containing key press information.
+        """
         key = interactor.GetKeySym()
         if key == 'Return':  # Enter key
             draw_polygon_and_compute_area(window)
@@ -108,7 +119,7 @@ def enable_area_tool(window: QMainWindow) -> None:
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._area_iren = iren
     window._area_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
-    window.visualizer.add_text(
+    window.instructions_text_actor = window.visualizer.add_text(
         "Right-click to select points for polygon.\n"
         "Press Enter to compute area of the polygon.\n"
         "Press Escape to clear the selection.\n",
@@ -125,8 +136,13 @@ def disable_area_tool(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The window with the visualizer to draw to
     """
-    # Clear the entire scene
-    window.visualizer.clear()
+    # Clear the texts
+    if hasattr(window, 'instructions_text_actor'):
+        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        del window.instructions_text_actor
+    if hasattr(window, 'area_text_actor'):
+        window.visualizer.remove_actor(window.area_text_actor, reset_camera=False)
+        del window.area_text_actor
     # Disable point picking and remove observers
     window.visualizer.disable_picking()
     if hasattr(window, '_area_iren') and hasattr(window, '_area_key_observer_tag'):
@@ -137,13 +153,4 @@ def disable_area_tool(window: QMainWindow) -> None:
     clear_polygon_selection(window)
     # Re-add the original mesh to the visualizer
     if hasattr(window, '_mesh_actor_polydata_backup'):
-        if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
-            window.mesh_actor = window.visualizer.add_mesh(
-                window._mesh_actor_polydata_backup, name="mesh_actor", 
-                scalars=window._mesh_actor_polydata_backup.point_data["RGB"], rgb=True, reset_camera=False
-            )
-        else:
-            window.mesh_actor = window.visualizer.add_mesh(
-                window._mesh_actor_polydata_backup, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
-            )
         del window._mesh_actor_polydata_backup

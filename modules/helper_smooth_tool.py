@@ -94,11 +94,11 @@ def enable_smooth_tool(window: QMainWindow) -> None:
             smooth_mesh_region(window)
         elif key.lower() == 'r':
             reset_mesh(window)
-    # Attach key observer
+    # Attach key observer and instructions
     iren = window.visualizer.interactor.GetRenderWindow().GetInteractor()
     window._smooth_iren = iren
     window._smooth_key_observer_tag = iren.AddObserver("KeyPressEvent", key_press_callback)
-    window.visualizer.add_text(
+    window.instructions_text_actor = window.visualizer.add_text(
         "Press 'Return' to smooth the mesh inside the box.\n"
         "Press 'R' to reset the mesh to its original state.\n"
         "Use the sliders to adjust smoothing parameters.",
@@ -138,31 +138,21 @@ def disable_smooth_tool(window: QMainWindow) -> None:
     Args:
         window (QMainWindow): The main window of the application.
     """
-    # Clear the entire scene
-    window.visualizer.clear()
+    # Clear the texts
+    if hasattr(window, 'instructions_text_actor'):
+        window.visualizer.remove_actor(window.instructions_text_actor, reset_camera=False)
+        del window.instructions_text_actor
     # Clean internal variables
     if hasattr(window, '_box_widget'):
         window.visualizer.clear_box_widgets()
         del window._box_widget
+    window.visualizer.clear_slider_widgets()
     if hasattr(window, '_smooth_iren') and hasattr(window, '_smooth_key_observer_tag'):
         window._smooth_iren.RemoveObserver(window._smooth_key_observer_tag)
         del window._smooth_iren
         del window._smooth_key_observer_tag
     if hasattr(window, '_smooth_params'):
         del window._smooth_params
-    # Re-add mesh
-    if window._current_mesh.n_points == 0:
-        window.mesh_actor = None
-    else:
-        if window.project_mesh_level == "ptc" or window.project_mesh_level == "mesh":
-            window.mesh_actor = window.visualizer.add_mesh(
-                window._current_mesh, name="mesh_actor", 
-                scalars=window._current_mesh.point_data["RGB"], rgb=True, reset_camera=False
-            )
-        else:
-            window.mesh_actor = window.visualizer.add_mesh(
-                window._current_mesh, texture=window.mesh_texture, name="mesh_actor", reset_camera=False
-            )
     if hasattr(window, '_original_mesh'):
         del window._original_mesh
     if hasattr(window, '_current_mesh'):
