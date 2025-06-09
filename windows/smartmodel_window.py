@@ -43,7 +43,7 @@ class SmartmodelWindow(QMainWindow):
         """
         super().__init__()
         # Title, icons, and position/sizes
-        self.setWindowTitle("Model Visualizer")
+        self.setWindowTitle("Mesh Manipulator")
         self.setWindowIcon(
             QPixmap(get_file_placement_path("resources/smartmodel.ico")))
         # Center the window on the screen

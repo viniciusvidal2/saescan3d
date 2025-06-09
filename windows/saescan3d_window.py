@@ -21,7 +21,7 @@ class Saescan3dWindow(QMainWindow):
         """
         super().__init__()
         # Title, icons, and position/sizes
-        self.setWindowTitle("SAEScan3D")
+        self.setWindowTitle("SfM Engine")
         self.setWindowIcon(
             QPixmap(get_file_placement_path("resources/saescan3d.ico")))
         # Center the window on the screen
