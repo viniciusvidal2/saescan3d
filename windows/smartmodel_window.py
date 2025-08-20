@@ -16,6 +16,7 @@ from modules.worker_obj import WorkerObj
 from modules.tools import (
     get_file_placement_path, read_pyvista_cloud, save_pyvista_cloud
 )
+from modules.worker_mesh import WorkerMesh
 from modules.helper_distance_tool import (
     enable_distance_tool, disable_distance_tool
 )
@@ -108,6 +109,8 @@ class SmartmodelWindow(QMainWindow):
         self.scene_center = None
         # Flag to control the level of what is loaded in the project
         self.project_mesh_level = None  # ["ptc", "mesh", "texture"]
+        # Max number of points that can a point cloud can have to be converted to mesh
+        self.max_points_to_mesh = 10000
 
     def setup_background(self) -> None:
         """Set up the background image for the main window.
@@ -368,18 +371,31 @@ class SmartmodelWindow(QMainWindow):
     def mesh_ptc_btn_callback(self) -> None:
         """Callback for the mesh point cloud button.
         """
+        self.disable_buttons()
         self.log_output(self.log_splitter)
         if self.project_mesh_level == "mesh" or self.project_mesh_level == "texture":
             self.log_output("Mesh already created.")
             self.enable_buttons()
             return
-        self.log_output("Processing the point cloud to create a mesh...")
-        # Apply a Delaunay triangulation to the point cloud
+        self.log_output("Processing the point cloud to create a mesh, wait for it to finish in the background...")
+        # Get point cloud polydata
         ptc_polydata = self.mesh_actor.GetMapper().GetInput()
-        mesh_polydata = ptc_polydata.delaunay_2d()
-        # Update the mesh in the visualizer
-        self.mesh_actor = self.visualizer.add_mesh(mesh_polydata, name="mesh_actor",
-                                                   scalars=mesh_polydata.point_data["RGB"], rgb=True, reset_camera=False)
+        # Run in background thread
+        self.mesh_thread = QThread()
+        self.mesh_worker = WorkerMesh(ptc=ptc_polydata, chunk_size=self.max_points_to_mesh)
+        self.mesh_worker.moveToThread(self.mesh_thread)
+        self.mesh_thread.started.connect(self.mesh_worker.mesh_the_point_cloud)
+        self.mesh_worker.finished.connect(self._on_mesh_ready)
+        self.mesh_thread.start()
+
+    def _on_mesh_ready(self, mesh: pv.PolyData) -> None:
+        """Callback for when the mesh is ready.
+
+        Args:
+            mesh (pv.PolyData): The processed mesh.
+        """
+        self.mesh_actor = self.visualizer.add_mesh(mesh, name="mesh_actor",
+                                                   scalars=mesh.point_data["RGB"], rgb=True, reset_camera=False)
         self.log_output("Mesh created successfully.")
         # Update project flag
         self.project_mesh_level = "mesh"
