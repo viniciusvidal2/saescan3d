@@ -385,6 +385,7 @@ class SmartmodelWindow(QMainWindow):
         self.mesh_worker = WorkerMesh(ptc=ptc_polydata, chunk_size=self.max_points_to_mesh)
         self.mesh_worker.moveToThread(self.mesh_thread)
         self.mesh_thread.started.connect(self.mesh_worker.mesh_the_point_cloud)
+        self.mesh_worker.log.connect(self.log_output)
         self.mesh_worker.finished.connect(self._on_mesh_ready)
         self.mesh_thread.start()
 
