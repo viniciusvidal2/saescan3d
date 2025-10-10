@@ -31,13 +31,20 @@ def connect_and_print_distance(window: QMainWindow) -> None:
         line, color='red', line_width=4, reset_camera=False)
     # Calculate the distance between the two points
     distance = np.linalg.norm(np.array(p1) - np.array(p2))
+    x_dist = p2[0] - p1[0]
+    y_dist = p2[1] - p1[1]
+    z_dist = p2[2] - p1[2]
     window.distance_text_actor = window.visualizer.add_text(
-        f"Distance: {distance:.2f} meters",
+        f"Distance: {distance:.2f} meters\n[X]: {x_dist:.2f} meters\n[Y]: {y_dist:.2f} meters\n[Z]: {z_dist:.2f} meters",
         position='upper_left',
         color='black',
-        name="distance_text"
+        name="distance_text",
+        font_size=13
     )
     window.log_output(f"DISTANCE: {distance:.3f} meters")
+    window.log_output(f"[X]: {x_dist:.3f} meters")
+    window.log_output(f"[Y]: {y_dist:.3f} meters")
+    window.log_output(f"[Z]: {z_dist:.3f} meters")
 
 
 def clear_all_points(window: QMainWindow) -> None:
