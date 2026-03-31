@@ -291,12 +291,12 @@ class Saescan3dWindow(QMainWindow):
         if ptc_polydata is not None:
             # Remove the mesh actor from the visualizer if the name matches
             if self.mesh_actor is not None:
-                for actor in list(self.visualizer.actors.values()):
-                    if actor.name == "Mesh":
-                        self.visualizer.remove_actor(actor, reset_camera=False)
+                self.visualizer.remove_actor(self.mesh_actor, reset_camera=False)
+                self.mesh_actor = None
+                self.mesh_texture = None
             # Create and add the point cloud actor
             self.ptc_actor = self.visualizer.add_mesh(
-                ptc_polydata, scalars=ptc_polydata.point_data["RGB"], rgb=True, name="PointCloud")
+                ptc_polydata, scalars=ptc_polydata.point_data["RGB"], rgb=True, name="ptc_actor")
             self.prepare_actors_for_visualization()
             self.visualizer.show()
             self.log_output("Point Cloud data displayed.")
@@ -336,8 +336,7 @@ class Saescan3dWindow(QMainWindow):
             self.thread_obj.finished.connect(self.thread_obj.deleteLater)
             self.thread_obj.start()
         else:
-            self.visualizer.add_mesh(
-                self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
+            self.log_output("Mesh already loaded, displaying it...")
             self.visualizer.reset_camera()
             self.visualizer.render()
             self.enable_buttons()
@@ -348,10 +347,9 @@ class Saescan3dWindow(QMainWindow):
             mesh_actor (pv.PolyData): The loaded mesh actor.
             mesh_texture (pv.Texture): The loaded mesh texture.
         """
-        self.mesh_actor = mesh_actor
         self.mesh_texture = mesh_texture
-        self.visualizer.add_mesh(
-            self.mesh_actor, name="mesh_actor", texture=self.mesh_texture)
+        self.mesh_actor = self.visualizer.add_mesh(
+            mesh_actor, name="mesh_actor", texture=self.mesh_texture)
         self.visualizer.reset_camera()
         self.visualizer.render()
         self.log_output("Mesh loaded successfully.")
