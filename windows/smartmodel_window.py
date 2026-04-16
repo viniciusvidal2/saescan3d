@@ -412,6 +412,14 @@ class SmartmodelWindow(QMainWindow):
             if button != btn:
                 button.setChecked(False)
                 button.setEnabled(False)
+        self.input_file_browse_btn.setEnabled(False)
+        self.input_file_text_edit.setEnabled(False)
+        self.mesh_ptc_btn.setEnabled(False)
+        self.download_mesh_btn.setEnabled(False)
+        self.radio_ply.setEnabled(False)
+        self.radio_las.setEnabled(False)
+        self.radio_xyz.setEnabled(False)
+        self.radio_geotiff.setEnabled(False)
 
     def download_mesh_btn_callback(self) -> None:
         """Callback for the download meshes button.
