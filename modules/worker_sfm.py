@@ -45,6 +45,7 @@ class WorkerSfm(QObject):
         self.pipelines = {"mesh": None,
                           "full": "photogrammetry"}
         self.pipeline = "full"
+        self.use_gpu_flag = True
         # Signals
         self.run_pipeline_signal.connect(self.run_pipeline)
         # Cameras
@@ -69,6 +70,14 @@ class WorkerSfm(QObject):
         """
         self.output_folder = output_folder
         self.cache_folder = os.path.join(self.output_folder, "MeshroomCache")
+
+    def set_use_gpu_flag(self, use_gpu: bool) -> None:
+        """Set the use GPU flag.
+
+        Args:
+            use_gpu (bool): Whether to use GPU or CPU.
+        """
+        self.use_gpu_flag = use_gpu
 
     def set_pipeline(self, pipeline: str) -> None:
         """Set the pipeline to run.
@@ -364,7 +373,13 @@ class WorkerSfm(QObject):
             return
         self.log.emit(f"Project file created at {self.project_file_path}.")
         # Setting the command according to the pipeline and GPU availability
-        gpu_available = self.check_gpu_available()
+        if self.use_gpu_flag:
+            gpu_available = self.check_gpu_available()
+            if not gpu_available:
+                self.log.emit("GPU selected but no NVIDIA GPU found, moving back to CPU pipeline.")
+        else:
+            gpu_available = False
+
         if gpu_available:
             self.log.emit(
                 "We will generate dense point cloud and textured mesh from running on GPU.")

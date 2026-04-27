@@ -1,7 +1,8 @@
 from sys import exit
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QSplashScreen, QTextEdit,
-    QHBoxLayout, QVBoxLayout, QLabel, QWidget, QFileDialog, QSplitter, QLineEdit
+    QHBoxLayout, QVBoxLayout, QLabel, QWidget, QFileDialog, QSplitter, QLineEdit,
+    QRadioButton, QButtonGroup
 )
 from PySide6.QtGui import QPixmap, QPalette, QBrush, QFont, QGuiApplication, QResizeEvent
 from PySide6.QtCore import Qt, QTimer, QThread
@@ -131,6 +132,19 @@ class Saescan3dWindow(QMainWindow):
         self.process_btn_layout.setAlignment(Qt.AlignTop)
         self.process_btn_layout.setSpacing(10)
         self.process_btn_layout.setContentsMargins(0, 0, 0, 0)
+        self.radio_layout = QHBoxLayout()
+        self.radio_layout.setAlignment(Qt.AlignLeft)
+        self.gpu_radio = QRadioButton("GPU")
+        self.gpu_radio.setChecked(True)
+        self.gpu_radio.setToolTip("Use GPU for processing")
+        self.cpu_radio = QRadioButton("CPU")
+        self.cpu_radio.setToolTip("Use CPU for processing")
+        self.radio_group = QButtonGroup()
+        self.radio_group.addButton(self.gpu_radio)
+        self.radio_group.addButton(self.cpu_radio)
+        self.radio_layout.addWidget(self.gpu_radio)
+        self.radio_layout.addWidget(self.cpu_radio)
+        self.process_btn_layout.addLayout(self.radio_layout)
         self.process_sfm_btn = QPushButton("Run SfM")
         self.process_sfm_btn.setEnabled(True)
         self.process_sfm_btn.clicked.connect(self.process_sfm_btn_callback)
@@ -275,6 +289,7 @@ class Saescan3dWindow(QMainWindow):
         # Set the input and output folders in the worker
         self.worker_sfm.set_input_folder(self.images_text_edit.text())
         self.worker_sfm.set_output_folder(self.sfm_output_text_edit.text())
+        self.worker_sfm.set_use_gpu_flag(self.gpu_radio.isChecked())
         # Set the pipeline to run
         self.worker_sfm.set_pipeline("full")
         # Run the SFM process in a separate thread
@@ -421,6 +436,8 @@ class Saescan3dWindow(QMainWindow):
         """Disable the buttons in the processing section.
         """
         self.process_sfm_btn.setEnabled(False)
+        self.gpu_radio.setEnabled(False)
+        self.cpu_radio.setEnabled(False)
         self.ptc_vis_btn.setEnabled(False)
         self.mesh_vis_btn.setEnabled(False)
         self.images_browse_btn.setEnabled(False)
@@ -433,6 +450,8 @@ class Saescan3dWindow(QMainWindow):
         """Enable the buttons in the processing section.
         """
         self.process_sfm_btn.setEnabled(True)
+        self.gpu_radio.setEnabled(True)
+        self.cpu_radio.setEnabled(True)
         self.ptc_vis_btn.setEnabled(True)
         self.mesh_vis_btn.setEnabled(True)
         self.images_browse_btn.setEnabled(True)
